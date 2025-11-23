@@ -1,5 +1,5 @@
 import { storeModel } from "./Store-Module";
-import { Store } from "./Store-Interface";
+import { Store } from "../types/Store-Interface";
 import { Types } from "mongoose";
 
 /**

@@ -1,5 +1,5 @@
 import mongoose, { Schema } from "mongoose";
-import { Store } from "./Store-Interface";
+import { Store } from "../types/Store-Interface";
 
 const locationSchema: Schema = new Schema({
     type: {
