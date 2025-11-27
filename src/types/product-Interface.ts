@@ -25,13 +25,12 @@ export interface IProduct {
 
 
     createdAt?: Date;
-    updateAt?: Date;
-    restoreAt?: Date;
+    updatedAt?: Date;
+    restoredAt?: Date;
 
-    freezedAt?: Date | undefined;
+    freezedAt?: Date;
     freezedBy?: Types.ObjectId
-    restoredAt?: Date | undefined;
-    restoreBy?: Types.ObjectId
+    restoredBy?: Types.ObjectId
 
 
 

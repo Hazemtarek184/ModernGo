@@ -50,8 +50,6 @@ export abstract class DatabaseRepository<TRawDocument, TDocument = HydratedDocum
         | null
     > {
 
-        console.log({ filter });
-
         const doc = this.model.findOne(filter).select(select || "")
         if (options?.lean) {
             doc.lean(options.lean);

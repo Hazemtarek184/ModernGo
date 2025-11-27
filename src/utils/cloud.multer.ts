@@ -42,7 +42,7 @@ export const cloudFileUpload = ({
 
     function fileFilter(req: Request, file: Express.Multer.File, callback: FileFilterCallback) {
         if (!validation.includes(file.mimetype)) {
-            callback(new BadRequestException("validation error",
+            return callback(new BadRequestException("validation error",
                 {
                     validationError: [{
                         Key: "file",
