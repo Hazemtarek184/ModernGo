@@ -1,6 +1,6 @@
 import { Types } from "mongoose";
 import { StoreProductModel } from "./StoreProduct-Module";
-import { StoreProductRepository } from "../DB/repository/storeProduct.repository";
+import { StoreProductRepository } from "../DB/repository/StoreProduct-Repository";
 import { ProductModel } from "../product/product.module";
 import { storeModel } from "../store/Store-Module";
 import { BadRequestException, NotFoundException } from "../utils/error.response";

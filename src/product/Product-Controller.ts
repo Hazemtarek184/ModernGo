@@ -1,8 +1,8 @@
 import type { Request, Response } from "express";
-import * as validators from "./product.validation";
+import * as validators from "./Product-Validation";
 import { BadRequestException } from "../utils/error.response";
 import { successResponse } from "../utils/success.response";
-import ProductService from "./product.service";
+import ProductService from "./Product-Service";
 
 export enum RoleEnum {
     admin = "admin",

@@ -1,5 +1,5 @@
 import { HydratedDocument, Model, model, models, Schema } from "mongoose";
-import { IProduct } from "../types/product-Interface";
+import { IProduct } from "../types/Product-Interface";
 
 const productSchema = new Schema<IProduct>(
     {

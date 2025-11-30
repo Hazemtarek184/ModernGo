@@ -1,5 +1,5 @@
 import type { Request, Response } from "express";
-import * as validators from "./storeProduct.validation";
+import * as validators from "./StoreProduct-Validation";
 import { BadRequestException } from "../utils/error.response";
 import { successResponse } from "../utils/success.response";
 import StoreProductService from "./StoreProduct-Service";

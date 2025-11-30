@@ -1,5 +1,5 @@
 import { Types } from "mongoose";
-import { ProductModel } from "./product.module";
+import { ProductModel } from "./Product-Module";
 import { ProductRepository } from "../DB/repository";
 import { BadRequestException, NotFoundException } from "../utils/error.response";
 import { v4 as uuid } from 'uuid';

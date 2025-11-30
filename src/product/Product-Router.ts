@@ -1,7 +1,7 @@
 import express from "express";
-import productController from "./product.controller";
-import { validation } from "../middleware/middleware.validation";
-import * as validators from "./product.validation"
+import productController from "./Product-Controller";
+import { validation } from "../middleware/middleware-Validation";
+import * as validators from "./Product-Validation"
 import { cloudFileUpload, fileValidation } from "../utils/cloud.multer";
 
 const router = express.Router();

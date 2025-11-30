@@ -1,8 +1,8 @@
 import express from "express";
 import StoreProductController from "./StoreProduct-Controller";
-import { validation } from "../middleware/middleware.validation";
+import { validation } from "../middleware/middleware-Validation";
 import { asyncHandler } from "../middleware/asyncHandler";
-import * as validators from "./storeProduct.validation";
+import * as validators from "./StoreProduct-Validation";
 
 const router = express.Router();
 

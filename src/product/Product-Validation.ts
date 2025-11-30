@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { fileValidation } from '../utils/cloud.multer';
-import { generalFields } from '../middleware/middleware.validation';
+import { generalFields } from '../middleware/middleware-Validation';
 import { Types } from 'mongoose';
 
 export const createProductSchema = {

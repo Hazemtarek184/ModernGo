@@ -5,7 +5,7 @@ import connectDB from './DB/Connection';
 import storesRouter from './store/Store-Router';
 import { globalErrorHandling } from './utils/error.response';
 import type { Request, Response } from "express";
-import productsRouter from './product/product.router';
+import productsRouter from './product/Product-Router';
 import storeProductsRouter from './store-product/StoreProduct-Router';
 
 

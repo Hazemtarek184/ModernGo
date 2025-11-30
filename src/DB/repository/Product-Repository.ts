@@ -1,6 +1,6 @@
 import { HydratedDocument, Model } from "mongoose";
-import { DatabaseRepository } from "./database.repository";
-import { IProduct as TDocument } from '../../types/product-Interface'
+import { DatabaseRepository } from "./Database-Repository";
+import { IProduct as TDocument } from '../../types/Product-Interface'
 
 
 export class ProductRepository extends DatabaseRepository<TDocument, HydratedDocument<TDocument>> {

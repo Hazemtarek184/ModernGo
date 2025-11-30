@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { generalFields } from "../middleware/middleware.validation";
+import { generalFields } from "../middleware/middleware-Validation";
 
 export const addProductToStoreSchema = {
     params: z.object({
