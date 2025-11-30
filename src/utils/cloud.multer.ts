@@ -9,8 +9,10 @@ export enum StorageEnum {
     disk = "disk"
 }
 
-export const fileValidation = {
-    image: ["image/jpeg", "image/jpg","image/png", "image/gif"],
+export const fileValidation: {
+    image: [string, ...string[]];
+} = {
+    image: ["image/jpeg", "image/jpg", "image/png", "image/gif"],
 }
 
 export const cloudFileUpload = ({

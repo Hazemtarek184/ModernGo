@@ -1,140 +1,80 @@
-import type { Request, Response } from "express"
-import * as validators from "./product.validation"
-import { BadRequestException, NotFoundException } from "../utils/error.response";
-import { ProductRepository } from "../DB/repository";
-import { ProductModel } from "./product.module";
-import { v4 as uuid } from 'uuid';
-import { uploadFiles } from "../utils/s3.config";
-import { StorageEnum } from "../utils/cloud.multer";
-import slugify from "slugify";
+import type { Request, Response } from "express";
+import * as validators from "./product.validation";
+import { BadRequestException } from "../utils/error.response";
 import { successResponse } from "../utils/success.response";
-import { Types } from "mongoose";
-
-
+import ProductService from "./product.service";
 
 export enum RoleEnum {
     admin = "admin",
     user = "user"
 }
 
-
-
-//product.service
 class ProductController {
-    private productModel = new ProductRepository(ProductModel)
-
     constructor() { }
 
+    /**
+     * POST /api/products
+     * Create a new product
+     */
     createProduct = async (req: Request, res: Response): Promise<Response> => {
-
+        // Validate request body
         const validationResult = validators.createProductSchema.body.safeParse(req.body);
         if (!validationResult.success) {
-            throw new BadRequestException("validation Error", {
+            throw new BadRequestException("Validation Error", {
                 issues: JSON.parse(validationResult.error as unknown as string)
-            })
+            });
         }
-        const createProductDto = validationResult.data;
 
-        const assistFolderId = uuid();
+        // Extract DTO fields (exclude images which come from req.files)
+        const { images, ...createProductDto } = validationResult.data;
         const files = req.files as Express.Multer.File[] || [];
-        const images = await uploadFiles({
-            storageApproach: StorageEnum.memory,
-            files,
-            path: `products/${assistFolderId}`,
-            useLarge: true
 
-        })
+        // Call service to create product
+        const product = await ProductService.createProduct(createProductDto, files);
 
-        const salePrice = createProductDto.mainPrice - (createProductDto.mainPrice * ((createProductDto.discountPercent ?? 0) / 100));
+        return successResponse({
+            res,
+            statuscode: 201,
+            data: { product }
+        });
+    };
 
-        createProductDto.slug = slugify(createProductDto.name, { lower: true, strict: true });
-
-
-        const [product] = await this.productModel.create({
-            data: [{
-                ...createProductDto,
-                assistFolderId,
-                images,
-                salePrice,
-                // createdBy:req.user?._id
-            }]
-        })
-
-        if (!product) {
-            throw new BadRequestException("Fail to create this product instance");
-        }
-
-
-        return successResponse({ res, statuscode: 201, data: { product } })
-
-    }
-
-
-
-
-
+    /**
+     * PATCH /api/products/:productId
+     * Update an existing product
+     */
     updateProduct = async (req: Request, res: Response): Promise<Response> => {
+        const { productId } = req.params;
 
-        const { _id } = req.params;
-
-        if (!_id) {
+        if (!productId) {
             throw new BadRequestException("Product ID is required");
         }
 
-        if (!Types.ObjectId.isValid(_id)) {
-            throw new BadRequestException("Invalid productId format");
-        }
-
+        // Validate request body
         const validationResult = validators.createProductSchema.body.safeParse(req.body);
         if (!validationResult.success) {
-            throw new BadRequestException("validation Error", {
+            throw new BadRequestException("Validation Error", {
                 issues: JSON.parse(validationResult.error as unknown as string)
-            })
+            });
         }
-        const updateProductDto = validationResult.data;
 
-        const product = await this.productModel.findOne({
-            filter: { _id: _id }
+        // Extract DTO fields (exclude images which come from req.files)
+        const { images, ...updateProductDto } = validationResult.data;
+
+        // Call service to update product
+        const updatedProduct = await ProductService.updateProduct(productId, updateProductDto);
+
+        return successResponse({
+            res,
+            statuscode: 200,
+            data: { updatedProduct }
         });
+    };
 
-        if (!product) {
-            throw new NotFoundException("fail to find matching product instance")
-        }
-
-
-        let salePrice = product.salePrice;
-        if (updateProductDto.mainPrice || updateProductDto.discountPercent) {
-            const mainPrice = updateProductDto.mainPrice ?? product.mainPrice;
-            const discountPercent = updateProductDto.discountPercent ?? product.discountPercent;
-            const finalPrice = mainPrice - (mainPrice * (discountPercent / 100));
-            salePrice = finalPrice > 0 ? finalPrice : 1
-
-        }
-
-        updateProductDto.slug = slugify(updateProductDto.name, { lower: true, strict: true });
-
-        const updatedProduct = await this.productModel.findOneAndUpdate({
-            filter: { _id: _id },
-            update: {
-                ...updateProductDto,
-                salePrice,
-                // updatedBy:user ._id
-            }
-        })
-
-
-        if (!updatedProduct) {
-            throw new BadRequestException("fail to update this product instance")
-        }
-
-        return successResponse({ res, statuscode: 200, data: { updatedProduct } })
-
-
-    }
-
-
-
-
+    /**
+     * PATCH /api/products/:productId/attachment
+     * Update product attachments/images
+     */
     updateProductAttachment = async (req: Request, res: Response): Promise<Response> => {
         const { productId } = req.params;
 
@@ -142,43 +82,14 @@ class ProductController {
             throw new BadRequestException("Missing productId in request params");
         }
 
-        if (!Types.ObjectId.isValid(productId)) {
-            throw new BadRequestException("Invalid productId format");
-        }
-
         const files = (req.files as Express.Multer.File[]) || [];
 
-        const product = await this.productModel.findOne({
-            filter: { _id: new Types.ObjectId(productId) }
-        });
-
-        if (!product) {
-            throw new NotFoundException("Failed to find matching product instance");
-        }
-
-        let attachment: string[] = [];
-        if (files.length > 0) {
-            attachment = await uploadFiles({
-                files,
-                path: `products/${product.assistFolderId}`,
-            });
-        }
-
-        const updateProduct = {
-            ...req.body,
-            ...(attachment.length > 0 && { attachment }),
-            // updatedBy: req.user?.id,
-        };
-
-        const updatedProduct = await this.productModel.findOneAndUpdate({
-            filter: { _id: new Types.ObjectId(productId) },
-            update: updateProduct,
-            options: { new: true }
-        });
-
-        if (!updatedProduct) {
-            throw new BadRequestException("Failed to update this product instance");
-        }
+        // Call service to update attachments
+        const updatedProduct = await ProductService.updateProductAttachment(
+            productId,
+            files,
+            req.body
+        );
 
         return successResponse({
             res,
@@ -187,8 +98,10 @@ class ProductController {
         });
     };
 
-
-
+    /**
+     * DELETE /api/products/:productId/freeze
+     * Freeze a product (soft delete)
+     */
     freezeProduct = async (req: Request, res: Response): Promise<Response> => {
         const { productId } = req.params;
 
@@ -196,85 +109,32 @@ class ProductController {
             throw new BadRequestException("Product ID is required");
         }
 
-
-        if (!Types.ObjectId.isValid(productId)) {
-            throw new BadRequestException("Invalid productId format");
-        }
-
-
-        const updated = await this.productModel.updateOne({
-            filter: {
-                _id: new Types.ObjectId(productId),
-                freezedAt: { $exists: false }
-            },
-            update: {
-                $set: {
-                    freezedAt: new Date(),
-                    // freezedBy: req.user?.id,
-                    changeCredentialsTime: new Date(),
-                }
-            }
-        });
-
-
-        if (updated.matchedCount === 0) {
-            throw new NotFoundException("Product not found or already frozen");
-        }
+        // Call service to freeze product
+        const result = await ProductService.freezeProduct(productId);
 
         return successResponse({
             res,
             statuscode: 200,
-            data: { productId }
+            data: result
         });
     };
 
-
-
-
+    /**
+     * PATCH /api/products/:productId/restore
+     * Restore a frozen product
+     */
     restoreProduct = async (req: Request, res: Response): Promise<Response> => {
-        const { productId } = req.params
+        const { productId } = req.params;
 
         if (!productId) {
             throw new BadRequestException("Product ID is required");
         }
 
-        if (!Types.ObjectId.isValid(productId)) {
-            throw new BadRequestException("Invalid productId format");
-        }
+        // Call service to restore product
+        await ProductService.restoreProduct(productId);
 
-        const restore = await this.productModel.updateOne({
-            filter: { _id: new Types.ObjectId(productId), freezedAt: { $exists: true } },
-            update: {
-                $unset: {
-                    freezedAt: 1,
-                    freezedBy: 1
-                },
-                $set: {
-                    restoreAt: new Date(),
-                    // restoreBy: req.user?.id
-                }
-            }
-        });
-
-        if (restore.matchedCount === 0) {
-            throw new NotFoundException("not found product or fail to restore this resource");
-        }
-
-
-        // if (!user.matchedCount) {
-        //     throw new NotFoundException(" not found  product or fail to restore this resource")
-        // }
-
-
-
-        return successResponse({ res })
-
-    }
-
-
-
-
-
-
+        return successResponse({ res });
+    };
 }
+
 export default new ProductController();

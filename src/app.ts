@@ -2,11 +2,11 @@ import express from 'express';
 import "dotenv/config.js";
 import bodyParser from 'body-parser';
 import connectDB from './DB/Connection';
-import storeRouter from './store/Store-Router'
+import storesRouter from './store/Store-Router';
 import { globalErrorHandling } from './utils/error.response';
-import type { Request, Response, Express } from "express";
-import productRouter from './product/product.router';
-
+import type { Request, Response } from "express";
+import productsRouter from './product/product.router';
+import storeProductsRouter from './store-product/StoreProduct-Router';
 
 
 
@@ -35,9 +35,10 @@ const bootstrap = async (): Promise<void> => {
 
 
 
-    //sub-app-routing-module
-    app.use("/api/", storeRouter);
-    app.use("/product", productRouter)
+    // API Routes
+    app.use("/api/stores", storesRouter);
+    app.use("/api/products", productsRouter);
+    app.use("/api", storeProductsRouter); // Handles nested routes like /api/stores/:id/products
 
 
 

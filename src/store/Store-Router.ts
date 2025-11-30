@@ -1,20 +1,19 @@
 import express from "express";
 import * as storeController from "./Store-Controller";
+import { asyncHandler } from "../middleware/asyncHandler";
 
 const router = express.Router();
 
-// Basic CRUD operations
-router.get("/stores", storeController.getStores);
-router.get("/stores/:storeId", storeController.getStoreById);
-router.post("/stores", storeController.createStore);
-router.put("/stores/:storeId", storeController.updateStore);
-router.delete("/stores/:storeId", storeController.deleteStore);
+// Specific routes FIRST (before parameterized routes to avoid conflicts)
+router.get("/nearby", asyncHandler(storeController.getStoresNearby));
+router.get("/search", asyncHandler(storeController.searchStoresByName));
+router.get("/category/:category", asyncHandler(storeController.getStoresByCategory));
 
-// Geospatial queries
-router.get("/stores/nearby", storeController.getStoresNearby);
-
-// Search and filter
-router.get("/stores/search", storeController.searchStoresByName);
-router.get("/stores/category/:category", storeController.getStoresByCategory);
+// Standard CRUD operations (parameterized routes LAST)
+router.get("/", asyncHandler(storeController.getStores));
+router.post("/", asyncHandler(storeController.createStore));
+router.get("/:storeId", asyncHandler(storeController.getStoreById));
+router.put("/:storeId", asyncHandler(storeController.updateStore));
+router.delete("/:storeId", asyncHandler(storeController.deleteStore));
 
 export default router;
