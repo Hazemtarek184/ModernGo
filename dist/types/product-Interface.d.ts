@@ -14,11 +14,10 @@ export interface IProduct {
     createdBy: Types.ObjectId;
     updatedBy?: Types.ObjectId;
     createdAt?: Date;
-    updateAt?: Date;
-    restoreAt?: Date;
-    freezedAt?: Date | undefined;
+    updatedAt?: Date;
+    restoredAt?: Date;
+    freezedAt?: Date;
     freezedBy?: Types.ObjectId;
-    restoredAt?: Date | undefined;
-    restoreBy?: Types.ObjectId;
+    restoredBy?: Types.ObjectId;
 }
-//# sourceMappingURL=product-Interface.d.ts.map
+//# sourceMappingURL=Product-Interface.d.ts.map

@@ -33,4 +33,4 @@ const storeSchema: Schema = new Schema({
 
 storeSchema.index({ location: '2dsphere' });
 
-export const storeModel = mongoose.model<Store>("Store", storeSchema);
+export const storeModel = (mongoose.models.Store as mongoose.Model<Store>) || mongoose.model<Store>("Store", storeSchema);

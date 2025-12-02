@@ -64,5 +64,5 @@ const storeSchema = new mongoose_1.Schema({
     timestamps: true
 });
 storeSchema.index({ location: '2dsphere' });
-exports.storeModel = mongoose_1.default.model("Store", storeSchema);
+exports.storeModel = mongoose_1.default.models.Store || mongoose_1.default.model("Store", storeSchema);
 //# sourceMappingURL=Store-Module.js.map

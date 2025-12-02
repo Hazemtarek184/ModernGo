@@ -33,8 +33,6 @@ export abstract class DatabaseRepository<TRawDocument, TDocument = HydratedDocum
         return await this.model.create(data, options) || [];
     }
 
-
-
     async findOne({
         filter,
         select,
@@ -54,7 +52,6 @@ export abstract class DatabaseRepository<TRawDocument, TDocument = HydratedDocum
         if (options?.lean) {
             doc.lean(options.lean);
         }
-
 
         if (options?.populate) {
             doc.populate(options.populate as PopulateOptions[]);

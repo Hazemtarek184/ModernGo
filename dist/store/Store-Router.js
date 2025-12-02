@@ -38,14 +38,15 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
 const storeController = __importStar(require("./Store-Controller"));
+const asyncHandler_1 = require("../middleware/asyncHandler");
 const router = express_1.default.Router();
-router.get("/stores", storeController.getStores);
-router.get("/stores/:storeId", storeController.getStoreById);
-router.post("/stores", storeController.createStore);
-router.put("/stores/:storeId", storeController.updateStore);
-router.delete("/stores/:storeId", storeController.deleteStore);
-router.get("/stores/nearby", storeController.getStoresNearby);
-router.get("/stores/search", storeController.searchStoresByName);
-router.get("/stores/category/:category", storeController.getStoresByCategory);
+router.get("/nearby", (0, asyncHandler_1.asyncHandler)(storeController.getStoresNearby));
+router.get("/search", (0, asyncHandler_1.asyncHandler)(storeController.searchStoresByName));
+router.get("/category/:category", (0, asyncHandler_1.asyncHandler)(storeController.getStoresByCategory));
+router.get("/", (0, asyncHandler_1.asyncHandler)(storeController.getStores));
+router.post("/", (0, asyncHandler_1.asyncHandler)(storeController.createStore));
+router.get("/:storeId", (0, asyncHandler_1.asyncHandler)(storeController.getStoreById));
+router.put("/:storeId", (0, asyncHandler_1.asyncHandler)(storeController.updateStore));
+router.delete("/:storeId", (0, asyncHandler_1.asyncHandler)(storeController.deleteStore));
 exports.default = router;
 //# sourceMappingURL=Store-Router.js.map

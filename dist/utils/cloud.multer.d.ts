@@ -4,7 +4,7 @@ export declare enum StorageEnum {
     disk = "disk"
 }
 export declare const fileValidation: {
-    image: string[];
+    image: [string, ...string[]];
 };
 export declare const cloudFileUpload: ({ validation, storageApproach, maxSizeMB, }: {
     validation?: string[];

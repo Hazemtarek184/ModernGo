@@ -27,7 +27,7 @@ const cloudFileUpload = ({ validation = [], storageApproach = StorageEnum.memory
         });
     function fileFilter(req, file, callback) {
         if (!validation.includes(file.mimetype)) {
-            callback(new error_response_1.BadRequestException("validation error", {
+            return callback(new error_response_1.BadRequestException("validation error", {
                 validationError: [{
                         Key: "file",
                         issues: [{ path: "file", message: "Invalid file format" }]
