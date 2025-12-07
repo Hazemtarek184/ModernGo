@@ -13,6 +13,7 @@ export interface ICustomer {
     email: string;
     phone: string;
     password: string;
+    profilePhoto?: string;
     address?: IAddress;
     createdAt?: Date;
     updatedAt?: Date;

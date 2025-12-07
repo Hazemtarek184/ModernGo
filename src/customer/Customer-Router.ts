@@ -3,12 +3,18 @@ import CustomerController from "./Customer-Controller";
 import { validation } from "../middleware/middleware-Validation";
 import * as validators from "./Customer-Validation";
 import { authenticateCustomer } from "../middleware/auth.middleware";
+import { cloudFileUpload, fileValidation, StorageEnum } from "../utils/cloud.multer";
 
 const router = express.Router();
 
 // Register a new customer
 router.post(
     "/register",
+    cloudFileUpload({
+        validation: fileValidation.image,
+        storageApproach: StorageEnum.memory,
+        maxSizeMB: 5
+    }).single('profilePhoto'),
     validation(validators.registerCustomerSchema),
     CustomerController.registerCustomer
 );

@@ -17,6 +17,8 @@ export interface ICustomer {
     phone: string;
     password: string;
 
+    profilePhoto?: string; // URL or path to profile photo (for future implementation)
+
     address?: IAddress;
 
     createdAt?: Date;

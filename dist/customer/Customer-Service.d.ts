@@ -43,6 +43,7 @@ declare class CustomerService {
             lastName: string;
             email: string;
             phone: string;
+            profilePhoto?: string;
             address?: import("../types/Customer-Interface").IAddress;
             createdAt?: Date;
             updatedAt?: Date;
@@ -57,6 +58,7 @@ declare class CustomerService {
             lastName: string;
             email: string;
             phone: string;
+            profilePhoto?: string;
             address?: import("../types/Customer-Interface").IAddress;
             createdAt?: Date;
             updatedAt?: Date;

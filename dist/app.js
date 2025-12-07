@@ -5,6 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
 require("dotenv/config.js");
+const cors_1 = __importDefault(require("cors"));
 const body_parser_1 = __importDefault(require("body-parser"));
 const Connection_1 = __importDefault(require("./DB/Connection"));
 const Store_Router_1 = __importDefault(require("./store/Store-Router"));
@@ -15,6 +16,22 @@ const Customer_Router_1 = __importDefault(require("./customer/Customer-Router"))
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 3000;
 (0, Connection_1.default)();
+const corsOptions = {
+    origin: process.env.NODE_ENV === 'production'
+        ? [
+            process.env.FRONTEND_URL || 'https://your-app.com',
+            'exp://',
+            /^exp:\/\/.*$/,
+            /^http:\/\/.*$/,
+        ]
+        : true,
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    exposedHeaders: ['Content-Range', 'X-Content-Range'],
+    maxAge: 86400,
+};
+app.use((0, cors_1.default)(corsOptions));
 app.use(express_1.default.json());
 app.use(body_parser_1.default.urlencoded({ extended: true }));
 app.use(body_parser_1.default.json());
@@ -28,8 +45,13 @@ app.use("/api/stores", Store_Router_1.default);
 app.use("/api/products", Product_Router_1.default);
 app.use("/api/customers", Customer_Router_1.default);
 app.use("/api", StoreProduct_Router_1.default);
-app.use("{/*dummy}", (req, res) => {
-    res.status(400).json({ message: "Invalid application routing please check the method and url ❌" });
+app.use((req, res) => {
+    res.status(404).json({
+        success: false,
+        message: "Invalid application routing - please check the method and URL ❌",
+        path: req.path,
+        method: req.method
+    });
 });
 app.use(error_response_1.globalErrorHandling);
 if (process.env.VERCEL !== '1') {

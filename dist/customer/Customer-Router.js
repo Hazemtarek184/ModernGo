@@ -41,8 +41,13 @@ const Customer_Controller_1 = __importDefault(require("./Customer-Controller"));
 const middleware_Validation_1 = require("../middleware/middleware-Validation");
 const validators = __importStar(require("./Customer-Validation"));
 const auth_middleware_1 = require("../middleware/auth.middleware");
+const cloud_multer_1 = require("../utils/cloud.multer");
 const router = express_1.default.Router();
-router.post("/register", (0, middleware_Validation_1.validation)(validators.registerCustomerSchema), Customer_Controller_1.default.registerCustomer);
+router.post("/register", (0, cloud_multer_1.cloudFileUpload)({
+    validation: cloud_multer_1.fileValidation.image,
+    storageApproach: cloud_multer_1.StorageEnum.memory,
+    maxSizeMB: 5
+}).single('profilePhoto'), (0, middleware_Validation_1.validation)(validators.registerCustomerSchema), Customer_Controller_1.default.registerCustomer);
 router.post("/login", (0, middleware_Validation_1.validation)(validators.loginCustomerSchema), Customer_Controller_1.default.loginCustomer);
 router.get("/:customerId", auth_middleware_1.authenticateCustomer, (0, middleware_Validation_1.validation)(validators.getCustomerSchema), Customer_Controller_1.default.getCustomerProfile);
 router.patch("/:customerId", auth_middleware_1.authenticateCustomer, (0, middleware_Validation_1.validation)(validators.updateCustomerSchema), Customer_Controller_1.default.updateCustomerProfile);

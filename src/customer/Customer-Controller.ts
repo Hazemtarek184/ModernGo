@@ -12,6 +12,11 @@ class CustomerController {
      * Register a new customer
      */
     registerCustomer = async (req: Request, res: Response): Promise<Response> => {
+        // Validate file upload
+        if (!req.file) {
+            throw new BadRequestException("Profile photo is required");
+        }
+
         // Validate request body
         const validationResult = validators.registerCustomerSchema.body.safeParse(req.body);
         if (!validationResult.success) {
@@ -23,13 +28,22 @@ class CustomerController {
         // Extract DTO fields (exclude confirmPassword)
         const { confirmPassword, ...registerDto } = validationResult.data;
 
-        // Call service to register customer
+        // Call service to register customer (file available in req.file for future implementation)
         const customer = await CustomerService.registerCustomer(registerDto);
 
         return successResponse({
             res,
             statuscode: 201,
-            data: { customer }
+            data: {
+                customer,
+                // For debugging/development - show that file was received
+                photoReceived: {
+                    fieldname: req.file.fieldname,
+                    originalname: req.file.originalname,
+                    mimetype: req.file.mimetype,
+                    size: req.file.size
+                }
+            }
         });
     };
 

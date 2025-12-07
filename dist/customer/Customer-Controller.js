@@ -43,6 +43,9 @@ const Customer_Service_1 = __importDefault(require("./Customer-Service"));
 class CustomerController {
     constructor() { }
     registerCustomer = async (req, res) => {
+        if (!req.file) {
+            throw new error_response_1.BadRequestException("Profile photo is required");
+        }
         const validationResult = validators.registerCustomerSchema.body.safeParse(req.body);
         if (!validationResult.success) {
             throw new error_response_1.BadRequestException("Validation Error", {
@@ -54,7 +57,15 @@ class CustomerController {
         return (0, success_response_1.successResponse)({
             res,
             statuscode: 201,
-            data: { customer }
+            data: {
+                customer,
+                photoReceived: {
+                    fieldname: req.file.fieldname,
+                    originalname: req.file.originalname,
+                    mimetype: req.file.mimetype,
+                    size: req.file.size
+                }
+            }
         });
     };
     loginCustomer = async (req, res) => {

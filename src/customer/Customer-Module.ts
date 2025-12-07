@@ -42,6 +42,11 @@ const customerSchema = new Schema<ICustomer>(
             select: false
         },
 
+        profilePhoto: {
+            type: String,
+            required: false
+        },
+
         address: { type: addressSchema },
     },
     {

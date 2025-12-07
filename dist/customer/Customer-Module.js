@@ -37,6 +37,10 @@ const customerSchema = new mongoose_1.Schema({
         maxlength: 128,
         select: false
     },
+    profilePhoto: {
+        type: String,
+        required: false
+    },
     address: { type: addressSchema },
 }, {
     timestamps: true,

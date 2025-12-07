@@ -26,6 +26,10 @@ exports.registerCustomerSchema = {
     }).refine(data => data.password === data.confirmPassword, {
         message: "Passwords don't match",
         path: ["confirmPassword"]
+    }),
+    file: zod_1.z.object({
+        fieldname: zod_1.z.literal('profilePhoto'),
+        mimetype: zod_1.z.enum(['image/jpeg', 'image/jpg', 'image/png', 'image/gif']),
     })
 };
 exports.loginCustomerSchema = {

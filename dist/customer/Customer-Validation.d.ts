@@ -15,6 +15,15 @@ export declare const registerCustomerSchema: {
             country: z.ZodOptional<z.ZodString>;
         }, z.core.$strip>>;
     }, z.core.$strip>;
+    file: z.ZodObject<{
+        fieldname: z.ZodLiteral<"profilePhoto">;
+        mimetype: z.ZodEnum<{
+            "image/jpeg": "image/jpeg";
+            "image/jpg": "image/jpg";
+            "image/png": "image/png";
+            "image/gif": "image/gif";
+        }>;
+    }, z.core.$strip>;
 };
 export declare const loginCustomerSchema: {
     body: z.ZodObject<{

@@ -1,5 +1,6 @@
 import express from 'express';
 import "dotenv/config.js";
+import cors from 'cors';
 import bodyParser from 'body-parser';
 import connectDB from './DB/Connection';
 import storesRouter from './store/Store-Router';
@@ -14,6 +15,25 @@ const PORT = process.env.PORT || 3000;
 
 // Connect Database
 connectDB();
+
+// CORS Configuration for Mobile/React Native Apps
+const corsOptions = {
+    origin: process.env.NODE_ENV === 'production'
+        ? [
+            process.env.FRONTEND_URL || 'https://your-app.com',
+            'exp://',  // Expo Go
+            /^exp:\/\/.*$/,  // Expo development
+            /^http:\/\/.*$/,  // Local development
+        ]
+        : true, // Allow all origins in development
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    exposedHeaders: ['Content-Range', 'X-Content-Range'],
+    maxAge: 86400, // 24 hours
+};
+
+app.use(cors(corsOptions));
 
 app.use(express.json());
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -34,9 +54,14 @@ app.use("/api/products", productsRouter);
 app.use("/api/customers", customersRouter);
 app.use("/api", storeProductsRouter); // Handles nested routes like /api/stores/:id/products
 
-//In-valid routing
-app.use("{/*dummy}", (req: Request, res: Response) => {
-    res.status(400).json({ message: "Invalid application routing please check the method and url ❌" })
+// Catch-all for invalid routes (must be after all valid routes)
+app.use((req: Request, res: Response) => {
+    res.status(404).json({
+        success: false,
+        message: "Invalid application routing - please check the method and URL ❌",
+        path: req.path,
+        method: req.method
+    });
 });
 
 // Global error handling middleware
