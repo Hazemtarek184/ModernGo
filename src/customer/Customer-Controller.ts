@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import * as validators from "./Customer-Validation";
-import { BadRequestException } from "../utils/error.response";
+import { BadRequestException, ForbiddenException } from "../utils/error.response";
 import { successResponse } from "../utils/success.response";
 import CustomerService from "./Customer-Service";
 
@@ -81,6 +81,11 @@ class CustomerController {
             throw new BadRequestException("Customer ID is required");
         }
 
+        // Verify the authenticated customer owns this resource
+        if (req.customer!.customerId !== customerId) {
+            throw new ForbiddenException("You can only view your own profile");
+        }
+
         // Call service to get customer profile
         const customer = await CustomerService.getCustomerProfile(customerId);
 
@@ -100,6 +105,11 @@ class CustomerController {
 
         if (!customerId) {
             throw new BadRequestException("Customer ID is required");
+        }
+
+        // Verify the authenticated customer owns this resource
+        if (req.customer!.customerId !== customerId) {
+            throw new ForbiddenException("You can only modify your own profile");
         }
 
         // Validate request body
@@ -132,6 +142,11 @@ class CustomerController {
 
         if (!customerId) {
             throw new BadRequestException("Customer ID is required");
+        }
+
+        // Verify the authenticated customer owns this resource
+        if (req.customer!.customerId !== customerId) {
+            throw new ForbiddenException("You can only change your own password");
         }
 
         // Validate request body

@@ -253,11 +253,18 @@ class StoreService {
     }
 
     /**
+     * Escape special regex characters in a string
+     */
+    private escapeRegex(str: string): string {
+        return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    /**
      * Search stores by name pattern
      */
     async searchStoresByNamePattern(searchQuery: string) {
         return await StoreModel.find({
-            name: { $regex: searchQuery, $options: 'i' }
+            name: { $regex: this.escapeRegex(searchQuery), $options: 'i' }
         }).lean();
     }
 

@@ -12,6 +12,17 @@ export interface TokenPayload {
 }
 
 /**
+ * Get JWT secret from environment, throws if not set
+ */
+const getJwtSecret = (): string => {
+    const secret = process.env.JWT_SECRET;
+    if (!secret) {
+        throw new Error('JWT_SECRET environment variable is not set');
+    }
+    return secret;
+};
+
+/**
  * Generate JWT access token for an authenticated entity
  */
 export const generateToken = (entityId: Types.ObjectId, email: string, role: TokenRole): string => {
@@ -21,20 +32,17 @@ export const generateToken = (entityId: Types.ObjectId, email: string, role: Tok
         role
     };
 
-    const secret = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
     const expiresIn = process.env.JWT_EXPIRES_IN || '7d';
 
-    return jwt.sign(payload, secret, { expiresIn } as jwt.SignOptions);
+    return jwt.sign(payload, getJwtSecret(), { expiresIn } as jwt.SignOptions);
 };
 
 /**
  * Verify JWT token and return payload
  */
 export const verifyToken = (token: string): TokenPayload => {
-    const secret = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
-
     try {
-        const decoded = jwt.verify(token, secret) as TokenPayload;
+        const decoded = jwt.verify(token, getJwtSecret()) as TokenPayload;
         return decoded;
     } catch (error) {
         throw new Error('Invalid or expired token');

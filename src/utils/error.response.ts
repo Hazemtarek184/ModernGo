@@ -42,7 +42,7 @@ export class UnauthorizedException extends ApplicationException {
     }
 }
 
-export class forbiddenException extends ApplicationException {
+export class ForbiddenException extends ApplicationException {
     constructor(message: string, cause?: unknown) {
         super(message, 403, cause);
 
@@ -72,7 +72,7 @@ export const globalErrorHandling = (
 ) => {
     return res.status(error.statusCode || 500).json({
         err_message: error.message || "something want Wrong!!",
-        stack: process.env.MOOD === "development" ? error.stack : undefined,
+        stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
         cause: error.cause,
 
     })

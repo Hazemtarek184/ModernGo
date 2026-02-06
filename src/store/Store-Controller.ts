@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import { successResponse } from "../utils/success.response";
+import { ForbiddenException } from "../utils/error.response";
 import StoreService from "./Store-Service";
 
 class StoreController {
@@ -69,6 +70,12 @@ class StoreController {
      */
     updateStore = async (req: Request, res: Response): Promise<Response> => {
         const { storeId } = req.params;
+
+        // Verify the authenticated store owns this resource
+        if (req.store!.storeId !== storeId) {
+            throw new ForbiddenException("You can only modify your own store");
+        }
+
         const updatedStore = await StoreService.updateStore(storeId!, req.body);
 
         return successResponse({
@@ -85,6 +92,12 @@ class StoreController {
      */
     deleteStore = async (req: Request, res: Response): Promise<Response> => {
         const { storeId } = req.params;
+
+        // Verify the authenticated store owns this resource
+        if (req.store!.storeId !== storeId) {
+            throw new ForbiddenException("You can only delete your own store");
+        }
+
         await StoreService.deleteStore(storeId!);
 
         return successResponse({
@@ -150,6 +163,12 @@ class StoreController {
      */
     updatePassword = async (req: Request, res: Response): Promise<Response> => {
         const { storeId } = req.params;
+
+        // Verify the authenticated store owns this resource
+        if (req.store!.storeId !== storeId) {
+            throw new ForbiddenException("You can only change your own password");
+        }
+
         const result = await StoreService.updatePassword(storeId!, req.body);
 
         return successResponse({

@@ -3,11 +3,33 @@ import request from 'supertest';
 import express, { Express } from 'express';
 import bodyParser from 'body-parser';
 import storeProductsRouter from '../../store-product/StoreProduct-Router';
+import storesRouter from '../../store/Store-Router';
 import { connect, closeDatabase, clearDatabase, seedTestData } from '../utils/testDb';
+import { factories } from '../utils/testHelpers';
 import { globalErrorHandling } from '../../utils/error.response';
 
 describe('StoreProduct API Integration Tests', () => {
     let app: Express;
+
+    // Helper to register a store and get auth token
+    const registerStoreAndGetToken = async (overrides: any = {}) => {
+        const storeData = factories.storeData({
+            email: `store${Date.now()}@test.com`,
+            password: 'TestPass123',
+            confirmPassword: 'TestPass123',
+            ...overrides
+        });
+
+        const response = await request(app)
+            .post('/api/stores/register')
+            .send(storeData);
+
+        return {
+            token: response.body.data?.token as string,
+            store: response.body.data?.store,
+            storeData
+        };
+    };
 
     // Setup test app and database
     beforeAll(async () => {
@@ -17,6 +39,7 @@ describe('StoreProduct API Integration Tests', () => {
         app.use(express.json());
         app.use(bodyParser.urlencoded({ extended: true }));
         app.use(bodyParser.json());
+        app.use('/api/stores', storesRouter);
         app.use('/api', storeProductsRouter);
         app.use(globalErrorHandling);
     });
@@ -30,12 +53,12 @@ describe('StoreProduct API Integration Tests', () => {
     });
 
     describe('POST /api/stores/:storeId/products', () => {
-        test('should return 404 when store does not exist', async () => {
+        test('should return 401 without auth token', async () => {
+            const store = await seedTestData.createStore();
             const product = await seedTestData.createProduct();
-            const fakeStoreId = '507f1f77bcf86cd799439011';
 
             const response = await request(app)
-                .post(`/api/stores/${fakeStoreId}/products`)
+                .post(`/api/stores/${store._id}/products`)
                 .send({
                     productId: product._id.toString(),
                     price: 99.99,
@@ -43,15 +66,34 @@ describe('StoreProduct API Integration Tests', () => {
                     isAvailable: true
                 });
 
-            expect(response.status).toBe(404);
+            expect(response.status).toBe(401);
+        });
+
+        test('should return 403 when adding product to a store you do not own', async () => {
+            const { token } = await registerStoreAndGetToken();
+            const otherStore = await seedTestData.createStore({ name: 'Other Store' });
+            const product = await seedTestData.createProduct();
+
+            const response = await request(app)
+                .post(`/api/stores/${otherStore._id}/products`)
+                .set('Authorization', `Bearer ${token}`)
+                .send({
+                    productId: product._id.toString(),
+                    price: 99.99,
+                    stock: 10,
+                    isAvailable: true
+                });
+
+            expect(response.status).toBe(403);
         });
 
         test('should return 404 when product does not exist', async () => {
-            const store = await seedTestData.createStore();
+            const { token, store } = await registerStoreAndGetToken();
             const fakeProductId = '507f1f77bcf86cd799439011';
 
             const response = await request(app)
                 .post(`/api/stores/${store._id}/products`)
+                .set('Authorization', `Bearer ${token}`)
                 .send({
                     productId: fakeProductId,
                     price: 99.99,
@@ -63,11 +105,12 @@ describe('StoreProduct API Integration Tests', () => {
         });
 
         test('should successfully add product to store', async () => {
-            const store = await seedTestData.createStore({ name: 'Test Store' });
+            const { token, store } = await registerStoreAndGetToken();
             const product = await seedTestData.createProduct({ name: 'Test Product' });
 
             const response = await request(app)
                 .post(`/api/stores/${store._id}/products`)
+                .set('Authorization', `Bearer ${token}`)
                 .send({
                     productId: product._id.toString(),
                     price: 149.99,
@@ -83,11 +126,12 @@ describe('StoreProduct API Integration Tests', () => {
         });
 
         test('should add product with default availability', async () => {
-            const store = await seedTestData.createStore();
+            const { token, store } = await registerStoreAndGetToken();
             const product = await seedTestData.createProduct();
 
             const response = await request(app)
                 .post(`/api/stores/${store._id}/products`)
+                .set('Authorization', `Bearer ${token}`)
                 .send({
                     productId: product._id.toString(),
                     price: 49.99,
@@ -164,7 +208,7 @@ describe('StoreProduct API Integration Tests', () => {
     });
 
     describe('PATCH /api/stores/:storeId/products/:productId', () => {
-        test('should return 404 when store-product relationship does not exist', async () => {
+        test('should return 401 without auth token', async () => {
             const store = await seedTestData.createStore();
             const product = await seedTestData.createProduct();
 
@@ -172,16 +216,43 @@ describe('StoreProduct API Integration Tests', () => {
                 .patch(`/api/stores/${store._id}/products/${product._id}`)
                 .send({ price: 199.99 });
 
+            expect(response.status).toBe(401);
+        });
+
+        test('should return 403 when updating product in a store you do not own', async () => {
+            const { token } = await registerStoreAndGetToken();
+            const otherStore = await seedTestData.createStore({ name: 'Other Store' });
+            const product = await seedTestData.createProduct();
+            await seedTestData.createStoreProduct(otherStore._id, product._id, { price: 100 });
+
+            const response = await request(app)
+                .patch(`/api/stores/${otherStore._id}/products/${product._id}`)
+                .set('Authorization', `Bearer ${token}`)
+                .send({ price: 199.99 });
+
+            expect(response.status).toBe(403);
+        });
+
+        test('should return 404 when store-product relationship does not exist', async () => {
+            const { token, store } = await registerStoreAndGetToken();
+            const product = await seedTestData.createProduct();
+
+            const response = await request(app)
+                .patch(`/api/stores/${store._id}/products/${product._id}`)
+                .set('Authorization', `Bearer ${token}`)
+                .send({ price: 199.99 });
+
             expect(response.status).toBe(404);
         });
 
         test('should update price successfully', async () => {
-            const store = await seedTestData.createStore();
+            const { token, store } = await registerStoreAndGetToken();
             const product = await seedTestData.createProduct();
             await seedTestData.createStoreProduct(store._id, product._id, { price: 100 });
 
             const response = await request(app)
                 .patch(`/api/stores/${store._id}/products/${product._id}`)
+                .set('Authorization', `Bearer ${token}`)
                 .send({ price: 150 });
 
             expect(response.status).toBe(200);
@@ -189,12 +260,13 @@ describe('StoreProduct API Integration Tests', () => {
         });
 
         test('should update stock successfully', async () => {
-            const store = await seedTestData.createStore();
+            const { token, store } = await registerStoreAndGetToken();
             const product = await seedTestData.createProduct();
             await seedTestData.createStoreProduct(store._id, product._id, { stock: 10 });
 
             const response = await request(app)
                 .patch(`/api/stores/${store._id}/products/${product._id}`)
+                .set('Authorization', `Bearer ${token}`)
                 .send({ stock: 50 });
 
             expect(response.status).toBe(200);
@@ -202,12 +274,13 @@ describe('StoreProduct API Integration Tests', () => {
         });
 
         test('should update availability successfully', async () => {
-            const store = await seedTestData.createStore();
+            const { token, store } = await registerStoreAndGetToken();
             const product = await seedTestData.createProduct();
             await seedTestData.createStoreProduct(store._id, product._id, { isAvailable: true });
 
             const response = await request(app)
                 .patch(`/api/stores/${store._id}/products/${product._id}`)
+                .set('Authorization', `Bearer ${token}`)
                 .send({ isAvailable: false });
 
             expect(response.status).toBe(200);
@@ -215,7 +288,7 @@ describe('StoreProduct API Integration Tests', () => {
         });
 
         test('should update multiple fields at once', async () => {
-            const store = await seedTestData.createStore();
+            const { token, store } = await registerStoreAndGetToken();
             const product = await seedTestData.createProduct();
             await seedTestData.createStoreProduct(store._id, product._id, {
                 price: 100,
@@ -225,6 +298,7 @@ describe('StoreProduct API Integration Tests', () => {
 
             const response = await request(app)
                 .patch(`/api/stores/${store._id}/products/${product._id}`)
+                .set('Authorization', `Bearer ${token}`)
                 .send({
                     price: 200,
                     stock: 50,
@@ -239,23 +313,48 @@ describe('StoreProduct API Integration Tests', () => {
     });
 
     describe('DELETE /api/stores/:storeId/products/:productId', () => {
-        test('should return 404 when store-product relationship does not exist', async () => {
+        test('should return 401 without auth token', async () => {
             const store = await seedTestData.createStore();
             const product = await seedTestData.createProduct();
 
             const response = await request(app)
                 .delete(`/api/stores/${store._id}/products/${product._id}`);
+
+            expect(response.status).toBe(401);
+        });
+
+        test('should return 403 when removing product from a store you do not own', async () => {
+            const { token } = await registerStoreAndGetToken();
+            const otherStore = await seedTestData.createStore({ name: 'Other Store' });
+            const product = await seedTestData.createProduct();
+            await seedTestData.createStoreProduct(otherStore._id, product._id);
+
+            const response = await request(app)
+                .delete(`/api/stores/${otherStore._id}/products/${product._id}`)
+                .set('Authorization', `Bearer ${token}`);
+
+            expect(response.status).toBe(403);
+        });
+
+        test('should return 404 when store-product relationship does not exist', async () => {
+            const { token, store } = await registerStoreAndGetToken();
+            const product = await seedTestData.createProduct();
+
+            const response = await request(app)
+                .delete(`/api/stores/${store._id}/products/${product._id}`)
+                .set('Authorization', `Bearer ${token}`);
 
             expect(response.status).toBe(404);
         });
 
         test('should successfully remove product from store', async () => {
-            const store = await seedTestData.createStore();
+            const { token, store } = await registerStoreAndGetToken();
             const product = await seedTestData.createProduct();
             await seedTestData.createStoreProduct(store._id, product._id);
 
             const response = await request(app)
-                .delete(`/api/stores/${store._id}/products/${product._id}`);
+                .delete(`/api/stores/${store._id}/products/${product._id}`)
+                .set('Authorization', `Bearer ${token}`);
 
             expect(response.status).toBe(200);
 
@@ -265,15 +364,41 @@ describe('StoreProduct API Integration Tests', () => {
         });
 
         test('should only remove the specific store-product relationship', async () => {
-            const store1 = await seedTestData.createStore({ name: 'Store 1' });
-            const store2 = await seedTestData.createStore({ name: 'Store 2' });
+            const { token: token1, store: store1 } = await registerStoreAndGetToken({
+                name: 'Store 1',
+                email: 'store1@test.com'
+            });
+            const { token: token2, store: store2 } = await registerStoreAndGetToken({
+                name: 'Store 2',
+                email: 'store2@test.com'
+            });
             const product = await seedTestData.createProduct();
 
-            await seedTestData.createStoreProduct(store1._id, product._id);
-            await seedTestData.createStoreProduct(store2._id, product._id);
+            // Add product to both stores via API
+            await request(app)
+                .post(`/api/stores/${store1._id}/products`)
+                .set('Authorization', `Bearer ${token1}`)
+                .send({
+                    productId: product._id.toString(),
+                    price: 100,
+                    stock: 10,
+                    isAvailable: true
+                });
 
+            await request(app)
+                .post(`/api/stores/${store2._id}/products`)
+                .set('Authorization', `Bearer ${token2}`)
+                .send({
+                    productId: product._id.toString(),
+                    price: 120,
+                    stock: 5,
+                    isAvailable: true
+                });
+
+            // Delete from store 1
             const response = await request(app)
-                .delete(`/api/stores/${store1._id}/products/${product._id}`);
+                .delete(`/api/stores/${store1._id}/products/${product._id}`)
+                .set('Authorization', `Bearer ${token1}`);
 
             expect(response.status).toBe(200);
 

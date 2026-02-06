@@ -1,44 +1,47 @@
 import express from "express";
 import StoreProductController from "./StoreProduct-Controller";
 import { validation } from "../middleware/middleware-Validation";
-import { asyncHandler } from "../middleware/asyncHandler";
 import * as validators from "./StoreProduct-Validation";
+import { authenticateStore } from "../middleware/auth.middleware";
 
 const router = express.Router();
 
-// Add a product to a store
+// Add a product to a store (protected - store owner only)
 router.post(
     "/stores/:storeId/products",
+    authenticateStore,
     validation(validators.addProductToStoreSchema),
-    asyncHandler(StoreProductController.addProductToStore)
+    StoreProductController.addProductToStore
 );
 
-// Get all products in a store
+// Get all products in a store (public)
 router.get(
     "/stores/:storeId/products",
     validation(validators.getStoreProductsSchema),
-    asyncHandler(StoreProductController.getStoreProducts)
+    StoreProductController.getStoreProducts
 );
 
-// Get all stores selling a product
+// Get all stores selling a product (public)
 router.get(
     "/products/:productId/stores",
     validation(validators.getProductStoresSchema),
-    asyncHandler(StoreProductController.getProductStores)
+    StoreProductController.getProductStores
 );
 
-// Update store-specific product details
+// Update store-specific product details (protected - store owner only)
 router.patch(
     "/stores/:storeId/products/:productId",
+    authenticateStore,
     validation(validators.updateStoreProductSchema),
-    asyncHandler(StoreProductController.updateStoreProduct)
+    StoreProductController.updateStoreProduct
 );
 
-// Remove a product from a store
+// Remove a product from a store (protected - store owner only)
 router.delete(
     "/stores/:storeId/products/:productId",
+    authenticateStore,
     validation(validators.removeProductFromStoreSchema),
-    asyncHandler(StoreProductController.removeProductFromStore)
+    StoreProductController.removeProductFromStore
 );
 
 export default router;

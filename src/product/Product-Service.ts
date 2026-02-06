@@ -31,11 +31,29 @@ class ProductService {
     constructor() { }
 
     /**
+     * Check if a store owns a specific product
+     */
+    async isProductOwner(productId: string, storeId: string): Promise<boolean> {
+        if (!Types.ObjectId.isValid(productId)) {
+            throw new BadRequestException("Invalid productId format");
+        }
+
+        const product = await ProductModel.findById(productId).select('createdBy').lean();
+
+        if (!product) {
+            throw new NotFoundException("Product not found");
+        }
+
+        return product.createdBy?.toString() === storeId;
+    }
+
+    /**
      * Create a new product
      */
     async createProduct(
         dto: CreateProductDto,
-        files: Express.Multer.File[]
+        files: Express.Multer.File[],
+        storeId: string
     ) {
         const assistFolderId = uuid();
 
@@ -61,7 +79,7 @@ class ProductService {
                 images,
                 salePrice,
                 slug,
-                // createdBy: req.user?._id
+                createdBy: new Types.ObjectId(storeId),
             }]
         });
 
@@ -77,7 +95,8 @@ class ProductService {
      */
     async updateProduct(
         productId: string,
-        dto: UpdateProductDto
+        dto: UpdateProductDto,
+        storeId: string
     ) {
         // Validate product ID format
         if (!Types.ObjectId.isValid(productId)) {
@@ -110,7 +129,7 @@ class ProductService {
                 ...dto,
                 ...(slug && { slug }),
                 salePrice,
-                // updatedBy: user._id
+                updatedBy: new Types.ObjectId(storeId),
             },
             options: { new: true }
         });
@@ -128,6 +147,7 @@ class ProductService {
     async updateProductAttachment(
         productId: string,
         files: Express.Multer.File[],
+        storeId: string,
         updateData?: any
     ) {
         // Validate product ID format
@@ -155,7 +175,7 @@ class ProductService {
         const updates = {
             ...updateData,
             ...(attachment.length > 0 && { images: attachment }),
-            // updatedBy: req.user?.id,
+            updatedBy: new Types.ObjectId(storeId),
         };
 
         const updatedProduct = await this.productRepository.findOneAndUpdate({
@@ -174,7 +194,7 @@ class ProductService {
     /**
      * Freeze a product (soft delete)
      */
-    async freezeProduct(productId: string) {
+    async freezeProduct(productId: string, storeId: string) {
         // Validate product ID format
         if (!Types.ObjectId.isValid(productId)) {
             throw new BadRequestException("Invalid productId format");
@@ -188,8 +208,7 @@ class ProductService {
             update: {
                 $set: {
                     freezedAt: new Date(),
-                    // freezedBy: req.user?.id,
-                    changeCredentialsTime: new Date(),
+                    freezedBy: new Types.ObjectId(storeId),
                 }
             }
         });
@@ -204,7 +223,7 @@ class ProductService {
     /**
      * Restore a frozen product
      */
-    async restoreProduct(productId: string) {
+    async restoreProduct(productId: string, storeId: string) {
         // Validate product ID format
         if (!Types.ObjectId.isValid(productId)) {
             throw new BadRequestException("Invalid productId format");
@@ -221,8 +240,8 @@ class ProductService {
                     freezedBy: 1
                 },
                 $set: {
-                    restoreAt: new Date(),
-                    // restoreBy: req.user?.id
+                    restoredAt: new Date(),
+                    restoredBy: new Types.ObjectId(storeId),
                 }
             }
         });

@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import * as validators from "./StoreProduct-Validation";
-import { BadRequestException } from "../utils/error.response";
+import { BadRequestException, ForbiddenException } from "../utils/error.response";
 import { successResponse } from "../utils/success.response";
 import StoreProductService from "./StoreProduct-Service";
 
@@ -22,6 +22,11 @@ class StoreProductController {
         const { storeId } = req.params;
         if (!storeId) {
             throw new BadRequestException("Store ID is required");
+        }
+
+        // Verify the authenticated store owns this resource
+        if (req.store!.storeId !== storeId) {
+            throw new ForbiddenException("You can only add products to your own store");
         }
 
         const { productId, price, stock, isAvailable } = validationResult.data;
@@ -97,6 +102,11 @@ class StoreProductController {
             throw new BadRequestException("Store ID and Product ID are required");
         }
 
+        // Verify the authenticated store owns this resource
+        if (req.store!.storeId !== storeId) {
+            throw new ForbiddenException("You can only modify products in your own store");
+        }
+
         const updates: {
             price?: number | undefined;
             stock?: number | undefined;
@@ -125,6 +135,11 @@ class StoreProductController {
         const { storeId, productId } = req.params;
         if (!storeId || !productId) {
             throw new BadRequestException("Store ID and Product ID are required");
+        }
+
+        // Verify the authenticated store owns this resource
+        if (req.store!.storeId !== storeId) {
+            throw new ForbiddenException("You can only remove products from your own store");
         }
 
         await StoreProductService.removeProductFromStore(storeId, productId);
