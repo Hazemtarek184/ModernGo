@@ -1,6 +1,5 @@
 import type { Request, Response } from "express";
-import * as validators from "./StoreProduct-Validation";
-import { BadRequestException, ForbiddenException } from "../utils/error.response";
+import { ForbiddenException } from "../utils/error.response";
 import { successResponse } from "../utils/success.response";
 import StoreProductService from "./StoreProduct-Service";
 
@@ -12,27 +11,18 @@ class StoreProductController {
      * Add a product to a store
      */
     addProductToStore = async (req: Request, res: Response): Promise<Response> => {
-        const validationResult = validators.addProductToStoreSchema.body.safeParse(req.body);
-        if (!validationResult.success) {
-            throw new BadRequestException("Validation Error", {
-                issues: JSON.parse(validationResult.error as unknown as string),
-            });
-        }
-
         const { storeId } = req.params;
-        if (!storeId) {
-            throw new BadRequestException("Store ID is required");
-        }
 
         // Verify the authenticated store owns this resource
         if (req.store!.storeId !== storeId) {
             throw new ForbiddenException("You can only add products to your own store");
         }
 
-        const { productId, price, stock, isAvailable } = validationResult.data;
+        // Body already validated by middleware
+        const { productId, price, stock, isAvailable } = req.body;
 
         const storeProduct = await StoreProductService.addProductToStore(
-            storeId,
+            storeId!,
             productId,
             price,
             stock,
@@ -53,11 +43,8 @@ class StoreProductController {
      */
     getStoreProducts = async (req: Request, res: Response): Promise<Response> => {
         const { storeId } = req.params;
-        if (!storeId) {
-            throw new BadRequestException("Store ID is required");
-        }
 
-        const storeProducts = await StoreProductService.getStoreProducts(storeId);
+        const storeProducts = await StoreProductService.getStoreProducts(storeId!);
 
         return successResponse({
             res,
@@ -72,11 +59,8 @@ class StoreProductController {
      */
     getProductStores = async (req: Request, res: Response): Promise<Response> => {
         const { productId } = req.params;
-        if (!productId) {
-            throw new BadRequestException("Product ID is required");
-        }
 
-        const productStores = await StoreProductService.getProductStores(productId);
+        const productStores = await StoreProductService.getProductStores(productId!);
 
         return successResponse({
             res,
@@ -90,32 +74,23 @@ class StoreProductController {
      * Update store-specific product details
      */
     updateStoreProduct = async (req: Request, res: Response): Promise<Response> => {
-        const validationResult = validators.updateStoreProductSchema.body.safeParse(req.body);
-        if (!validationResult.success) {
-            throw new BadRequestException("Validation Error", {
-                issues: JSON.parse(validationResult.error as unknown as string),
-            });
-        }
-
         const { storeId, productId } = req.params;
-        if (!storeId || !productId) {
-            throw new BadRequestException("Store ID and Product ID are required");
-        }
 
         // Verify the authenticated store owns this resource
         if (req.store!.storeId !== storeId) {
             throw new ForbiddenException("You can only modify products in your own store");
         }
 
+        // Body already validated by middleware
         const updates: {
             price?: number | undefined;
             stock?: number | undefined;
             isAvailable?: boolean | undefined;
-        } = validationResult.data;
+        } = req.body;
 
         const updatedStoreProduct = await StoreProductService.updateStoreProduct(
-            storeId,
-            productId,
+            storeId!,
+            productId!,
             updates
         );
 
@@ -133,16 +108,13 @@ class StoreProductController {
      */
     removeProductFromStore = async (req: Request, res: Response): Promise<Response> => {
         const { storeId, productId } = req.params;
-        if (!storeId || !productId) {
-            throw new BadRequestException("Store ID and Product ID are required");
-        }
 
         // Verify the authenticated store owns this resource
         if (req.store!.storeId !== storeId) {
             throw new ForbiddenException("You can only remove products from your own store");
         }
 
-        await StoreProductService.removeProductFromStore(storeId, productId);
+        await StoreProductService.removeProductFromStore(storeId!, productId!);
 
         return successResponse({
             res,

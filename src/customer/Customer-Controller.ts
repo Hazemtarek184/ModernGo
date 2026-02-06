@@ -1,5 +1,4 @@
 import type { Request, Response } from "express";
-import * as validators from "./Customer-Validation";
 import { BadRequestException, ForbiddenException } from "../utils/error.response";
 import { successResponse } from "../utils/success.response";
 import CustomerService from "./Customer-Service";
@@ -17,16 +16,8 @@ class CustomerController {
             throw new BadRequestException("Profile photo is required");
         }
 
-        // Validate request body
-        const validationResult = validators.registerCustomerSchema.body.safeParse(req.body);
-        if (!validationResult.success) {
-            throw new BadRequestException("Validation Error", {
-                issues: JSON.parse(validationResult.error as unknown as string)
-            });
-        }
-
-        // Extract DTO fields (exclude confirmPassword)
-        const { confirmPassword, ...registerDto } = validationResult.data;
+        // Extract DTO fields (exclude confirmPassword — already validated by middleware)
+        const { confirmPassword, ...registerDto } = req.body;
 
         // Call service to register customer (file available in req.file for future implementation)
         const customer = await CustomerService.registerCustomer(registerDto);
@@ -52,16 +43,8 @@ class CustomerController {
      * Customer login
      */
     loginCustomer = async (req: Request, res: Response): Promise<Response> => {
-        // Validate request body
-        const validationResult = validators.loginCustomerSchema.body.safeParse(req.body);
-        if (!validationResult.success) {
-            throw new BadRequestException("Validation Error", {
-                issues: JSON.parse(validationResult.error as unknown as string)
-            });
-        }
-
-        // Call service to login customer
-        const customer = await CustomerService.loginCustomer(validationResult.data);
+        // Call service to login customer (body already validated by middleware)
+        const customer = await CustomerService.loginCustomer(req.body);
 
         return successResponse({
             res,
@@ -77,17 +60,13 @@ class CustomerController {
     getCustomerProfile = async (req: Request, res: Response): Promise<Response> => {
         const { customerId } = req.params;
 
-        if (!customerId) {
-            throw new BadRequestException("Customer ID is required");
-        }
-
         // Verify the authenticated customer owns this resource
         if (req.customer!.customerId !== customerId) {
             throw new ForbiddenException("You can only view your own profile");
         }
 
         // Call service to get customer profile
-        const customer = await CustomerService.getCustomerProfile(customerId);
+        const customer = await CustomerService.getCustomerProfile(customerId!);
 
         return successResponse({
             res,
@@ -103,27 +82,15 @@ class CustomerController {
     updateCustomerProfile = async (req: Request, res: Response): Promise<Response> => {
         const { customerId } = req.params;
 
-        if (!customerId) {
-            throw new BadRequestException("Customer ID is required");
-        }
-
         // Verify the authenticated customer owns this resource
         if (req.customer!.customerId !== customerId) {
             throw new ForbiddenException("You can only modify your own profile");
         }
 
-        // Validate request body
-        const validationResult = validators.updateCustomerSchema.body.safeParse(req.body);
-        if (!validationResult.success) {
-            throw new BadRequestException("Validation Error", {
-                issues: JSON.parse(validationResult.error as unknown as string)
-            });
-        }
-
-        // Call service to update customer profile
+        // Call service to update customer profile (body already validated by middleware)
         const updatedCustomer = await CustomerService.updateCustomerProfile(
-            customerId,
-            validationResult.data
+            customerId!,
+            req.body
         );
 
         return successResponse({
@@ -140,28 +107,16 @@ class CustomerController {
     updatePassword = async (req: Request, res: Response): Promise<Response> => {
         const { customerId } = req.params;
 
-        if (!customerId) {
-            throw new BadRequestException("Customer ID is required");
-        }
-
         // Verify the authenticated customer owns this resource
         if (req.customer!.customerId !== customerId) {
             throw new ForbiddenException("You can only change your own password");
         }
 
-        // Validate request body
-        const validationResult = validators.updatePasswordSchema.body.safeParse(req.body);
-        if (!validationResult.success) {
-            throw new BadRequestException("Validation Error", {
-                issues: JSON.parse(validationResult.error as unknown as string)
-            });
-        }
-
-        // Extract DTO fields (exclude confirmPassword)
-        const { confirmPassword, ...updatePasswordDto } = validationResult.data;
+        // Extract DTO fields (exclude confirmPassword — already validated by middleware)
+        const { confirmPassword, ...updatePasswordDto } = req.body;
 
         // Call service to update password
-        const result = await CustomerService.updatePassword(customerId, updatePasswordDto);
+        const result = await CustomerService.updatePassword(customerId!, updatePasswordDto);
 
         return successResponse({
             res,
