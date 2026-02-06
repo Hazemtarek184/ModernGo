@@ -56,9 +56,11 @@ export const seedTestData = {
      * Create a test store
      */
     createStore: async (overrides: any = {}) => {
-        const { storeModel } = require('../../store/Store-Module');
-        return await storeModel.create({
+        const { StoreModel } = require('../../store/Store-Module');
+        return await StoreModel.create({
             name: 'Test Store',
+            email: `teststore${Date.now()}@test.com`,
+            password: 'TestPass123',
             address: '123 Test St, Test City',
             phone: '+201234567890',
             location: {
@@ -75,7 +77,7 @@ export const seedTestData = {
      * Create a test product
      */
     createProduct: async (overrides: any = {}) => {
-        const { ProductModel } = require('../../product/product.module');
+        const { ProductModel } = require('../../product/Product-Module');
         return await ProductModel.create({
             name: 'Test Product',
             slug: 'test-product',

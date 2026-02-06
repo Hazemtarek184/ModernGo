@@ -1,7 +1,8 @@
 import { describe, expect, test, beforeAll, afterAll, beforeEach } from '@jest/globals';
-import * as StoreService from '../Store-Service';
+import StoreService from '../Store-Service';
 import { connect, closeDatabase, clearDatabase, seedTestData } from '../../__tests__/utils/testDb';
 import { factories, isValidObjectId } from '../../__tests__/utils/testHelpers';
+import { BadRequestException, NotFoundException } from '../../utils/error.response';
 
 describe('Store Service Unit Tests', () => {
     // Setup test database
@@ -17,6 +18,95 @@ describe('Store Service Unit Tests', () => {
         await clearDatabase();
     });
 
+    // ─── Auth Tests ─────────────────────────────────────────────
+
+    describe('registerStore', () => {
+        test('should register a new store and return token', async () => {
+            const storeData = factories.storeData({
+                email: 'newstore@test.com',
+                password: 'TestPass123',
+            });
+
+            const result = await StoreService.registerStore(storeData);
+
+            expect(result).toHaveProperty('store');
+            expect(result).toHaveProperty('token');
+            expect(result.store.name).toBe(storeData.name);
+            expect(result.store.email).toBe('newstore@test.com');
+            expect(result.store).not.toHaveProperty('password');
+            expect(typeof result.token).toBe('string');
+        });
+
+        test('should throw BadRequestException for duplicate email', async () => {
+            const storeData = factories.storeData({
+                email: 'duplicate@test.com',
+                password: 'TestPass123',
+            });
+
+            await StoreService.registerStore(storeData);
+
+            await expect(
+                StoreService.registerStore({
+                    ...factories.storeData({
+                        email: 'duplicate@test.com',
+                        password: 'TestPass123',
+                    }),
+                    name: 'Another Store'
+                })
+            ).rejects.toThrow(BadRequestException);
+        });
+    });
+
+    describe('loginStore', () => {
+        test('should login with valid credentials and return token', async () => {
+            // Register first
+            await StoreService.registerStore(
+                factories.storeData({
+                    email: 'logintest@test.com',
+                    password: 'TestPass123',
+                })
+            );
+
+            // Login
+            const result = await StoreService.loginStore({
+                email: 'logintest@test.com',
+                password: 'TestPass123'
+            });
+
+            expect(result).toHaveProperty('store');
+            expect(result).toHaveProperty('token');
+            expect(result.store.email).toBe('logintest@test.com');
+            expect(result.store).not.toHaveProperty('password');
+        });
+
+        test('should throw BadRequestException for invalid email', async () => {
+            await expect(
+                StoreService.loginStore({
+                    email: 'nonexistent@test.com',
+                    password: 'TestPass123'
+                })
+            ).rejects.toThrow(BadRequestException);
+        });
+
+        test('should throw BadRequestException for wrong password', async () => {
+            await StoreService.registerStore(
+                factories.storeData({
+                    email: 'wrongpass@test.com',
+                    password: 'TestPass123',
+                })
+            );
+
+            await expect(
+                StoreService.loginStore({
+                    email: 'wrongpass@test.com',
+                    password: 'WrongPass456'
+                })
+            ).rejects.toThrow(BadRequestException);
+        });
+    });
+
+    // ─── CRUD Tests ─────────────────────────────────────────────
+
     describe('getAllStores', () => {
         test('should return empty array when no stores exist', async () => {
             const stores = await StoreService.getAllStores();
@@ -30,17 +120,16 @@ describe('Store Service Unit Tests', () => {
 
             const stores = await StoreService.getAllStores();
             expect(stores).toHaveLength(3);
-            expect(stores[0].name).toBe('Store 1');
-            expect(stores[1].name).toBe('Store 2');
-            expect(stores[2].name).toBe('Store 3');
+            expect(stores[0]!.name).toBe('Store 1');
+            expect(stores[1]!.name).toBe('Store 2');
+            expect(stores[2]!.name).toBe('Store 3');
         });
     });
 
     describe('getStoreById', () => {
-        test('should return null when store does not exist', async () => {
+        test('should throw NotFoundException when store does not exist', async () => {
             const fakeId = '507f1f77bcf86cd799439011';
-            const store = await StoreService.getStoreById(fakeId);
-            expect(store).toBeNull();
+            await expect(StoreService.getStoreById(fakeId)).rejects.toThrow(NotFoundException);
         });
 
         test('should return store when it exists', async () => {
@@ -48,102 +137,68 @@ describe('Store Service Unit Tests', () => {
             const store = await StoreService.getStoreById(createdStore._id.toString());
 
             expect(store).not.toBeNull();
-            expect(store?.name).toBe('Test Store');
-            expect(store?._id.toString()).toBe(createdStore._id.toString());
+            expect(store.name).toBe('Test Store');
+            expect(store._id.toString()).toBe(createdStore._id.toString());
         });
     });
 
-    describe('createNewStore', () => {
-        test('should create a new store with valid data', async () => {
-            const storeData = factories.storeData({ name: 'New Store' });
-            const store = await StoreService.createNewStore(storeData);
-
-            expect(store).toBeDefined();
-            expect(store.name).toBe('New Store');
-            expect(store.address).toBe(storeData.address);
-            expect(store.phone).toBe(storeData.phone);
-            expect(isValidObjectId(store._id.toString())).toBe(true);
-        });
-
-        test('should create store with correct location', async () => {
-            const storeData = factories.storeData({
-                name: 'Location Test Store',
-                location: {
-                    type: 'Point',
-                    coordinates: [31.5, 30.5]
-                }
-            });
-            const store = await StoreService.createNewStore(storeData);
-
-            expect(store.location.type).toBe('Point');
-            expect(store.location.coordinates).toEqual([31.5, 30.5]);
-        });
-
-        test('should create store with categories', async () => {
-            const storeData = factories.storeData({
-                categories: ['food', 'beverages', 'snacks']
-            });
-            const store = await StoreService.createNewStore(storeData);
-
-            expect(store.categories).toEqual(['food', 'beverages', 'snacks']);
-        });
-    });
-
-    describe('updateStoreById', () => {
-        test('should return null when updating non-existent store', async () => {
+    describe('updateStore', () => {
+        test('should throw NotFoundException when updating non-existent store', async () => {
             const fakeId = '507f1f77bcf86cd799439011';
-            const result = await StoreService.updateStoreById(fakeId, { name: 'Updated' });
-            expect(result).toBeNull();
+            await expect(
+                StoreService.updateStore(fakeId, { name: 'Updated' })
+            ).rejects.toThrow(NotFoundException);
         });
 
         test('should update store name', async () => {
             const store = await seedTestData.createStore({ name: 'Original Name' });
-            const updated = await StoreService.updateStoreById(store._id.toString(), {
+            const updated = await StoreService.updateStore(store._id.toString(), {
                 name: 'Updated Name'
             });
 
             expect(updated).not.toBeNull();
-            expect(updated?.name).toBe('Updated Name');
+            expect((updated as any).name).toBe('Updated Name');
         });
 
         test('should update store phone', async () => {
             const store = await seedTestData.createStore({ phone: '+201111111111' });
-            const updated = await StoreService.updateStoreById(store._id.toString(), {
+            const updated = await StoreService.updateStore(store._id.toString(), {
                 phone: '+202222222222'
             });
 
-            expect(updated?.phone).toBe('+202222222222');
+            expect((updated as any).phone).toBe('+202222222222');
         });
 
         test('should update store categories', async () => {
             const store = await seedTestData.createStore({ categories: ['old'] });
-            const updated = await StoreService.updateStoreById(store._id.toString(), {
+            const updated = await StoreService.updateStore(store._id.toString(), {
                 categories: ['new1', 'new2']
             });
 
-            expect(updated?.categories).toEqual(['new1', 'new2']);
+            expect((updated as any).categories).toEqual(['new1', 'new2']);
         });
     });
 
-    describe('deleteStoreById', () => {
-        test('should return null when deleting non-existent store', async () => {
+    describe('deleteStore', () => {
+        test('should throw NotFoundException when deleting non-existent store', async () => {
             const fakeId = '507f1f77bcf86cd799439011';
-            const result = await StoreService.deleteStoreById(fakeId);
-            expect(result).toBeNull();
+            await expect(StoreService.deleteStore(fakeId)).rejects.toThrow(NotFoundException);
         });
 
         test('should delete existing store', async () => {
             const store = await seedTestData.createStore({ name: 'To Delete' });
-            const deleted = await StoreService.deleteStoreById(store._id.toString());
+            const deleted = await StoreService.deleteStore(store._id.toString());
 
             expect(deleted).not.toBeNull();
-            expect(deleted?.name).toBe('To Delete');
 
             // Verify it's actually deleted
-            const found = await StoreService.getStoreById(store._id.toString());
-            expect(found).toBeNull();
+            await expect(
+                StoreService.getStoreById(store._id.toString())
+            ).rejects.toThrow(NotFoundException);
         });
     });
+
+    // ─── Query Tests ────────────────────────────────────────────
 
     describe('searchStoresByNamePattern', () => {
         test('should return empty array when no stores match', async () => {

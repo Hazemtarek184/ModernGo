@@ -85,7 +85,7 @@ class CustomerService {
         const { password, ...customerWithoutPassword } = customerObject;
 
         // Generate JWT token
-        const token = generateToken(customer._id!, customer.email);
+        const token = generateToken(customer._id!, customer.email, 'customer');
 
         return {
             customer: customerWithoutPassword,
@@ -116,7 +116,7 @@ class CustomerService {
         const { password, ...customerWithoutPassword } = customerObject;
 
         // Generate JWT token
-        const token = generateToken(customer._id!, customer.email);
+        const token = generateToken(customer._id!, customer.email, 'customer');
 
         return {
             customer: customerWithoutPassword,

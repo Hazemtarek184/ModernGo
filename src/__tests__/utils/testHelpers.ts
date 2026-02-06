@@ -58,6 +58,8 @@ export const factories = {
      */
     storeData: (overrides: any = {}) => ({
         name: 'Test Store',
+        email: `teststore${Date.now()}@test.com`,
+        password: 'TestPass123',
         address: '123 Test Street, Test City',
         phone: '+201234567890',
         location: {

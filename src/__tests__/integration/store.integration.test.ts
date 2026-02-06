@@ -10,6 +10,26 @@ import { globalErrorHandling } from '../../utils/error.response';
 describe('Store API Integration Tests', () => {
     let app: Express;
 
+    // Helper to register a store and get auth token
+    const registerStoreAndGetToken = async (overrides: any = {}) => {
+        const storeData = factories.storeData({
+            email: `store${Date.now()}@test.com`,
+            password: 'TestPass123',
+            confirmPassword: 'TestPass123',
+            ...overrides
+        });
+
+        const response = await request(app)
+            .post('/api/stores/register')
+            .send(storeData);
+
+        return {
+            token: response.body.data?.token as string,
+            store: response.body.data?.store,
+            storeData
+        };
+    };
+
     // Setup test app and database
     beforeAll(async () => {
         await connect();
@@ -30,6 +50,104 @@ describe('Store API Integration Tests', () => {
         await clearDatabase();
     });
 
+    // ─── Auth Endpoint Tests ────────────────────────────────────
+
+    describe('POST /api/stores/register', () => {
+        test('should register a new store', async () => {
+            const storeData = factories.storeData({
+                email: 'newstore@test.com',
+                password: 'TestPass123',
+                confirmPassword: 'TestPass123',
+            });
+
+            const response = await request(app)
+                .post('/api/stores/register')
+                .send(storeData);
+
+            expect(response.status).toBe(201);
+            expect(response.body.data).toHaveProperty('store');
+            expect(response.body.data).toHaveProperty('token');
+            expect(response.body.data.store.name).toBe(storeData.name);
+            expect(response.body.data.store.email).toBe('newstore@test.com');
+            expect(response.body.data.store).not.toHaveProperty('password');
+        });
+
+        test('should return 400 for duplicate email', async () => {
+            const storeData = factories.storeData({
+                email: 'dup@test.com',
+                password: 'TestPass123',
+                confirmPassword: 'TestPass123',
+            });
+
+            await request(app).post('/api/stores/register').send(storeData);
+
+            const response = await request(app)
+                .post('/api/stores/register')
+                .send({
+                    ...factories.storeData({
+                        email: 'dup@test.com',
+                        password: 'TestPass123',
+                        confirmPassword: 'TestPass123',
+                    }),
+                    name: 'Another Store'
+                });
+
+            expect(response.status).toBe(400);
+        });
+
+        test('should return 400 for password mismatch', async () => {
+            const storeData = factories.storeData({
+                email: 'mismatch@test.com',
+                password: 'TestPass123',
+                confirmPassword: 'DifferentPass123',
+            });
+
+            const response = await request(app)
+                .post('/api/stores/register')
+                .send(storeData);
+
+            expect(response.status).toBe(400);
+        });
+    });
+
+    describe('POST /api/stores/login', () => {
+        test('should login with valid credentials', async () => {
+            // Register first
+            await request(app)
+                .post('/api/stores/register')
+                .send(factories.storeData({
+                    email: 'login@test.com',
+                    password: 'TestPass123',
+                    confirmPassword: 'TestPass123',
+                }));
+
+            // Login
+            const response = await request(app)
+                .post('/api/stores/login')
+                .send({
+                    email: 'login@test.com',
+                    password: 'TestPass123'
+                });
+
+            expect(response.status).toBe(200);
+            expect(response.body.data).toHaveProperty('store');
+            expect(response.body.data).toHaveProperty('token');
+        });
+
+        test('should return 400 for invalid credentials', async () => {
+            const response = await request(app)
+                .post('/api/stores/login')
+                .send({
+                    email: 'nonexistent@test.com',
+                    password: 'TestPass123'
+                });
+
+            expect(response.status).toBe(400);
+        });
+    });
+
+    // ─── Public Read Endpoint Tests ─────────────────────────────
+
     describe('GET /api/stores', () => {
         test('should return empty array when no stores exist', async () => {
             const response = await request(app).get('/api/stores');
@@ -48,53 +166,6 @@ describe('Store API Integration Tests', () => {
             expect(response.status).toBe(200);
             expect(response.body.data.stores).toHaveLength(3);
             expect(response.body.data.stores[0].name).toBe('Store 1');
-        });
-    });
-
-    describe('POST /api/stores', () => {
-        test('should create a new store with valid data', async () => {
-            const storeData = factories.storeData({ name: 'New Store' });
-
-            const response = await request(app)
-                .post('/api/stores')
-                .send(storeData);
-
-            expect(response.status).toBe(201);
-            expect(response.body.data.store).toHaveProperty('_id');
-            expect(response.body.data.store.name).toBe('New Store');
-            expect(response.body.data.store.address).toBe(storeData.address);
-            expect(response.body.data.store.phone).toBe(storeData.phone);
-        });
-
-        test('should create store with location', async () => {
-            const storeData = factories.storeData({
-                name: 'Location Store',
-                location: {
-                    type: 'Point',
-                    coordinates: [31.2357, 30.0444]
-                }
-            });
-
-            const response = await request(app)
-                .post('/api/stores')
-                .send(storeData);
-
-            expect(response.status).toBe(201);
-            expect(response.body.data.store.location.type).toBe('Point');
-            expect(response.body.data.store.location.coordinates).toEqual([31.2357, 30.0444]);
-        });
-
-        test('should create store with categories', async () => {
-            const storeData = factories.storeData({
-                categories: ['electronics', 'gadgets', 'tech']
-            });
-
-            const response = await request(app)
-                .post('/api/stores')
-                .send(storeData);
-
-            expect(response.status).toBe(201);
-            expect(response.body.data.store.categories).toEqual(['electronics', 'gadgets', 'tech']);
         });
     });
 
@@ -118,71 +189,75 @@ describe('Store API Integration Tests', () => {
         });
     });
 
+    // ─── Protected Write Endpoint Tests ─────────────────────────
+
     describe('PUT /api/stores/:storeId', () => {
-        test('should return 404 when updating non-existent store', async () => {
-            const fakeId = '507f1f77bcf86cd799439011';
-
-            const response = await request(app)
-                .put(`/api/stores/${fakeId}`)
-                .send({ name: 'Updated Name' });
-
-            expect(response.status).toBe(404);
-        });
-
-        test('should update store name', async () => {
-            const store = await seedTestData.createStore({ name: 'Original Name' });
+        test('should return 401 without auth token', async () => {
+            const store = await seedTestData.createStore();
 
             const response = await request(app)
                 .put(`/api/stores/${store._id}`)
+                .send({ name: 'Updated Name' });
+
+            expect(response.status).toBe(401);
+        });
+
+        test('should update store name with auth token', async () => {
+            const { token, store } = await registerStoreAndGetToken();
+
+            const response = await request(app)
+                .put(`/api/stores/${store._id}`)
+                .set('Authorization', `Bearer ${token}`)
                 .send({ name: 'Updated Name' });
 
             expect(response.status).toBe(200);
             expect(response.body.data.store.name).toBe('Updated Name');
         });
 
-        test('should update store phone', async () => {
-            const store = await seedTestData.createStore({ phone: '+201111111111' });
-
-            const response = await request(app)
-                .put(`/api/stores/${store._id}`)
-                .send({ phone: '+202222222222' });
-
-            expect(response.status).toBe(200);
-            expect(response.body.data.store.phone).toBe('+202222222222');
-        });
-
-        test('should update multiple fields', async () => {
-            const store = await seedTestData.createStore({
-                name: 'Old Name',
-                phone: '+201111111111'
-            });
-
-            const response = await request(app)
-                .put(`/api/stores/${store._id}`)
-                .send({
-                    name: 'New Name',
-                    phone: '+202222222222'
-                });
-
-            expect(response.status).toBe(200);
-            expect(response.body.data.store.name).toBe('New Name');
-            expect(response.body.data.store.phone).toBe('+202222222222');
-        });
-    });
-
-    describe('DELETE /api/stores/:storeId', () => {
-        test('should return 404 when deleting non-existent store', async () => {
+        test('should return 404 when updating non-existent store', async () => {
+            const { token } = await registerStoreAndGetToken();
             const fakeId = '507f1f77bcf86cd799439011';
 
-            const response = await request(app).delete(`/api/stores/${fakeId}`);
+            const response = await request(app)
+                .put(`/api/stores/${fakeId}`)
+                .set('Authorization', `Bearer ${token}`)
+                .send({ name: 'Updated Name' });
 
             expect(response.status).toBe(404);
         });
 
-        test('should delete existing store', async () => {
-            const store = await seedTestData.createStore({ name: 'To Delete' });
+        test('should update multiple fields', async () => {
+            const { token, store } = await registerStoreAndGetToken();
+
+            const response = await request(app)
+                .put(`/api/stores/${store._id}`)
+                .set('Authorization', `Bearer ${token}`)
+                .send({
+                    name: 'New Name',
+                    phone: '+201522222222'
+                });
+
+            expect(response.status).toBe(200);
+            expect(response.body.data.store.name).toBe('New Name');
+            expect(response.body.data.store.phone).toBe('+201522222222');
+        });
+    });
+
+    describe('DELETE /api/stores/:storeId', () => {
+        test('should return 401 without auth token', async () => {
+            const store = await seedTestData.createStore();
 
             const response = await request(app).delete(`/api/stores/${store._id}`);
+
+            expect(response.status).toBe(401);
+        });
+
+        test('should delete existing store with auth token', async () => {
+            const { token, store } = await registerStoreAndGetToken();
+
+            const response = await request(app)
+                .delete(`/api/stores/${store._id}`)
+                .set('Authorization', `Bearer ${token}`);
 
             expect(response.status).toBe(200);
 
@@ -190,7 +265,20 @@ describe('Store API Integration Tests', () => {
             const getResponse = await request(app).get(`/api/stores/${store._id}`);
             expect(getResponse.status).toBe(404);
         });
+
+        test('should return 404 when deleting non-existent store', async () => {
+            const { token } = await registerStoreAndGetToken();
+            const fakeId = '507f1f77bcf86cd799439011';
+
+            const response = await request(app)
+                .delete(`/api/stores/${fakeId}`)
+                .set('Authorization', `Bearer ${token}`);
+
+            expect(response.status).toBe(404);
+        });
     });
+
+    // ─── Query Endpoint Tests ───────────────────────────────────
 
     describe('GET /api/stores/search', () => {
         test('should return empty array when no stores match', async () => {
@@ -278,6 +366,64 @@ describe('Store API Integration Tests', () => {
 
             expect(response.status).toBe(200);
             expect(Array.isArray(response.body.data.stores)).toBe(true);
+        });
+    });
+
+    // ─── Password Update Tests ──────────────────────────────────
+
+    describe('PATCH /api/stores/:storeId/password', () => {
+        test('should return 401 without auth token', async () => {
+            const store = await seedTestData.createStore();
+
+            const response = await request(app)
+                .patch(`/api/stores/${store._id}/password`)
+                .send({
+                    currentPassword: 'TestPass123',
+                    newPassword: 'NewPass456',
+                    confirmPassword: 'NewPass456'
+                });
+
+            expect(response.status).toBe(401);
+        });
+
+        test('should update password with valid current password', async () => {
+            const { token, store } = await registerStoreAndGetToken();
+
+            const response = await request(app)
+                .patch(`/api/stores/${store._id}/password`)
+                .set('Authorization', `Bearer ${token}`)
+                .send({
+                    currentPassword: 'TestPass123',
+                    newPassword: 'NewPass456',
+                    confirmPassword: 'NewPass456'
+                });
+
+            expect(response.status).toBe(200);
+
+            // Verify can login with new password
+            const loginResponse = await request(app)
+                .post('/api/stores/login')
+                .send({
+                    email: store.email,
+                    password: 'NewPass456'
+                });
+
+            expect(loginResponse.status).toBe(200);
+        });
+
+        test('should return 400 for wrong current password', async () => {
+            const { token, store } = await registerStoreAndGetToken();
+
+            const response = await request(app)
+                .patch(`/api/stores/${store._id}/password`)
+                .set('Authorization', `Bearer ${token}`)
+                .send({
+                    currentPassword: 'WrongPass999',
+                    newPassword: 'NewPass456',
+                    confirmPassword: 'NewPass456'
+                });
+
+            expect(response.status).toBe(400);
         });
     });
 });

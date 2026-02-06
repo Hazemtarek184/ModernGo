@@ -1,19 +1,24 @@
 import jwt from 'jsonwebtoken';
 import { Types } from 'mongoose';
 
+// Supported entity roles for JWT
+export type TokenRole = 'customer' | 'store';
+
 // Token payload interface
 export interface TokenPayload {
-    customerId: string;
+    entityId: string;
     email: string;
+    role: TokenRole;
 }
 
 /**
- * Generate JWT access token for customer
+ * Generate JWT access token for an authenticated entity
  */
-export const generateToken = (customerId: Types.ObjectId, email: string): string => {
+export const generateToken = (entityId: Types.ObjectId, email: string, role: TokenRole): string => {
     const payload: TokenPayload = {
-        customerId: customerId.toString(),
-        email
+        entityId: entityId.toString(),
+        email,
+        role
     };
 
     const secret = process.env.JWT_SECRET || 'your-secret-key-change-in-production';

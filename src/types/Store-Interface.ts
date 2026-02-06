@@ -1,18 +1,27 @@
-import { ObjectId } from 'mongodb';
+import { Types } from 'mongoose';
 
-interface Location {
+export interface ILocation {
     type: 'Point';
     coordinates: [number, number]; // [longitude, latitude]
     address?: string;
 }
 
-export interface Store {
-    _id: ObjectId;
+export interface IStore {
+    _id?: Types.ObjectId;
+
     name: string;
+    email: string;
+    password: string;
     address: string;
     phone: string;
-    location: Location;
+    location: ILocation;
     categories: string[];
-    createdAt: Date;
-    updatedAt: Date;
+
+    createdAt?: Date;
+    updatedAt?: Date;
+}
+
+// Interface for Store document instance methods
+export interface IStoreMethods {
+    comparePassword(candidatePassword: string): Promise<boolean>;
 }

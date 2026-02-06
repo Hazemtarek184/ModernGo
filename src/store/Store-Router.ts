@@ -1,19 +1,74 @@
 import express from "express";
-import * as storeController from "./Store-Controller";
-import { asyncHandler } from "../middleware/asyncHandler";
+import StoreController from "./Store-Controller";
+import { validation } from "../middleware/middleware-Validation";
+import * as validators from "./Store-Validation";
+import { authenticateStore } from "../middleware/auth.middleware";
 
 const router = express.Router();
 
-// Specific routes FIRST (before parameterized routes to avoid conflicts)
-router.get("/nearby", asyncHandler(storeController.getStoresNearby));
-router.get("/search", asyncHandler(storeController.searchStoresByName));
-router.get("/category/:category", asyncHandler(storeController.getStoresByCategory));
+// ─── Public Auth Routes ─────────────────────────────────────
 
-// Standard CRUD operations (parameterized routes LAST)
-router.get("/", asyncHandler(storeController.getStores));
-router.post("/", asyncHandler(storeController.createStore));
-router.get("/:storeId", asyncHandler(storeController.getStoreById));
-router.put("/:storeId", asyncHandler(storeController.updateStore));
-router.delete("/:storeId", asyncHandler(storeController.deleteStore));
+router.post(
+    "/register",
+    validation(validators.registerStoreSchema),
+    StoreController.registerStore
+);
+
+router.post(
+    "/login",
+    validation(validators.loginStoreSchema),
+    StoreController.loginStore
+);
+
+// ─── Public Read Routes (specific routes FIRST) ─────────────
+
+router.get(
+    "/nearby",
+    validation(validators.nearbyStoreSchema),
+    StoreController.getStoresNearby
+);
+
+router.get(
+    "/search",
+    validation(validators.searchStoreSchema),
+    StoreController.searchStoresByName
+);
+
+router.get(
+    "/category/:category",
+    validation(validators.categoryStoreSchema),
+    StoreController.getStoresByCategory
+);
+
+router.get("/", StoreController.getStores);
+
+router.get(
+    "/:storeId",
+    validation(validators.getStoreSchema),
+    StoreController.getStoreById
+);
+
+// ─── Protected Write Routes ─────────────────────────────────
+
+router.put(
+    "/:storeId",
+    authenticateStore,
+    validation(validators.updateStoreSchema),
+    StoreController.updateStore
+);
+
+router.delete(
+    "/:storeId",
+    authenticateStore,
+    validation(validators.getStoreSchema),
+    StoreController.deleteStore
+);
+
+router.patch(
+    "/:storeId/password",
+    authenticateStore,
+    validation(validators.updatePasswordSchema),
+    StoreController.updatePassword
+);
 
 export default router;

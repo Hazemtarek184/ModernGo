@@ -2,7 +2,7 @@ import { Types } from "mongoose";
 import { StoreProductModel } from "./StoreProduct-Module";
 import { StoreProductRepository } from "../DB/repository/StoreProduct-Repository";
 import { ProductModel } from "../product/Product-Module";
-import { storeModel } from "../store/Store-Module";
+import { StoreModel } from "../store/Store-Module";
 import { BadRequestException, NotFoundException } from "../utils/error.response";
 
 class StoreProductService {
@@ -21,7 +21,7 @@ class StoreProductService {
         isAvailable: boolean = true
     ) {
         // Validate that both store and product exist
-        const store = await storeModel.findById(storeId);
+        const store = await StoreModel.findById(storeId);
         if (!store) {
             throw new NotFoundException("Store not found");
         }
@@ -56,7 +56,7 @@ class StoreProductService {
      */
     async getStoreProducts(storeId: string) {
         // Validate store exists
-        const store = await storeModel.findById(storeId);
+        const store = await StoreModel.findById(storeId);
         if (!store) {
             throw new NotFoundException("Store not found");
         }
