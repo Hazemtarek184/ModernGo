@@ -59,3 +59,25 @@ export const removeProductFromStoreSchema = {
         productId: generalFields.id,
     }),
 };
+
+// ─── Nearby Store-Product Schemas ────────────────────────────
+
+export const getNearbyStoresForProductSchema = {
+    params: z.object({
+        productId: generalFields.id,
+    }),
+    query: z.object({
+        longitude: z.coerce.number().min(-180).max(180),
+        latitude: z.coerce.number().min(-90).max(90),
+        maxDistance: z.coerce.number().min(100).max(50000).default(5000).optional(),
+    }),
+};
+
+export const searchNearbyProductStoresSchema = {
+    query: z.object({
+        query: z.string().min(1, "Search query is required").trim(),
+        longitude: z.coerce.number().min(-180).max(180),
+        latitude: z.coerce.number().min(-90).max(90),
+        maxDistance: z.coerce.number().min(100).max(50000).default(5000).optional(),
+    }),
+};

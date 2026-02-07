@@ -122,6 +122,51 @@ class StoreProductController {
             message: "Product removed from store successfully",
         });
     };
+
+    // ─── Nearby Query Methods ────────────────────────────────────
+
+    /**
+     * GET /products/:productId/stores/nearby
+     * Find nearby stores selling a specific product
+     */
+    getNearbyStoresForProduct = async (req: Request, res: Response): Promise<Response> => {
+        const { productId } = req.params;
+        const { longitude, latitude, maxDistance } = req.query;
+
+        const stores = await StoreProductService.getNearbyStoresForProduct(
+            productId!,
+            Number(longitude),
+            Number(latitude),
+            maxDistance ? Number(maxDistance) : undefined
+        );
+
+        return successResponse({
+            res,
+            statuscode: 200,
+            data: { stores, count: stores.length },
+        });
+    };
+
+    /**
+     * GET /products/stores/nearby
+     * Search for nearby stores selling products matching a name query
+     */
+    searchNearbyProductStores = async (req: Request, res: Response): Promise<Response> => {
+        const { query, longitude, latitude, maxDistance } = req.query;
+
+        const stores = await StoreProductService.searchNearbyStoresForProduct(
+            query as string,
+            Number(longitude),
+            Number(latitude),
+            maxDistance ? Number(maxDistance) : undefined
+        );
+
+        return successResponse({
+            res,
+            statuscode: 200,
+            data: { stores, count: stores.length },
+        });
+    };
 }
 
 export default new StoreProductController();
