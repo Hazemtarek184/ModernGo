@@ -5,6 +5,9 @@ import { jest } from '@jest/globals';
  * Runs before all tests
  */
 
+// Set environment variables for tests
+process.env.JWT_SECRET = 'test-secret-key';
+
 // Set longer timeout for database operations
 jest.setTimeout(30000);
 

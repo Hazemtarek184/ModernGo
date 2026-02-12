@@ -18,14 +18,14 @@ const productSchema = new Schema<IProduct>(
         soldItems: { type: Number, default: 0 },
         stock: { type: Number, required: true },
 
-        createdBy: { type: Schema.Types.ObjectId, ref: "User" },
-        updatedBy: { type: Schema.Types.ObjectId, ref: "User" },
+        createdBy: { type: Schema.Types.ObjectId, ref: "Store" },
+        updatedBy: { type: Schema.Types.ObjectId, ref: "Store" },
 
         freezedAt: Date,
-        freezedBy: { type: Schema.Types.ObjectId, ref: "User" },
+        freezedBy: { type: Schema.Types.ObjectId, ref: "Store" },
 
         restoredAt: Date,
-        restoredBy: { type: Schema.Types.ObjectId, ref: "User" },
+        restoredBy: { type: Schema.Types.ObjectId, ref: "Store" },
     },
     {
         timestamps: true,

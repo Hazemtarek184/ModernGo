@@ -1,10 +1,5 @@
 import type { Request, Response, NextFunction } from "express"
 
-export interface IError extends Error {
-    statusCode: number,
- }
-
-
 export class ApplicationException extends Error {
     constructor(
         message: string,
@@ -14,66 +9,58 @@ export class ApplicationException extends Error {
         super(message, { cause });
         this.name = this.constructor.name
         Error.captureStackTrace(this, this.constructor)
-
     }
 }
-
-
 
 export class BadRequestException extends ApplicationException {
     constructor(message: string, cause?: unknown) {
         super(message, 400, cause);
-
     }
 }
-
 
 export class NotFoundException extends ApplicationException {
     constructor(message: string, cause?: unknown) {
         super(message, 404, cause);
-
     }
 }
 
 export class UnauthorizedException extends ApplicationException {
     constructor(message: string, cause?: unknown) {
         super(message, 401, cause);
-
     }
 }
 
-export class forbiddenException extends ApplicationException {
+export class ForbiddenException extends ApplicationException {
     constructor(message: string, cause?: unknown) {
         super(message, 403, cause);
-
     }
 }
-
 
 export class ConflictException extends ApplicationException {
     constructor(message: string, cause?: unknown) {
         super(message, 409, cause);
-
     }
 }
 
-// export const asyncHandler =
-//     (fn: (req: Request, res: Response, next: NextFunction) => Promise<any>) =>
-//         (req: Request, res: Response, next: NextFunction) => {
-//             Promise.resolve(fn(req, res, next)).catch(next);
-//         };
-
-
+/** Global error handling middleware */
 export const globalErrorHandling = (
-    error: IError,
+    error: Error,
     req: Request,
     res: Response,
     next: NextFunction
 ) => {
-    return res.status(error.statusCode || 500).json({
-        err_message: error.message || "something want Wrong!!",
-        stack: process.env.MOOD === "development" ? error.stack : undefined,
-        cause: error.cause,
+    // Known application errors — safe to expose details
+    if (error instanceof ApplicationException) {
+        return res.status(error.statusCode).json({
+            message: error.message,
+            stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
+            cause: error.cause,
+        })
+    }
 
+    // Unexpected errors — hide internals in production
+    return res.status(500).json({
+        message: "something went wrong",
+        stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
     })
 }

@@ -1,13 +1,7 @@
 import type { Request, Response } from "express";
-import * as validators from "./Product-Validation";
-import { BadRequestException } from "../utils/error.response";
+import { ForbiddenException } from "../utils/error.response";
 import { successResponse } from "../utils/success.response";
 import ProductService from "./Product-Service";
-
-export enum RoleEnum {
-    admin = "admin",
-    user = "user"
-}
 
 class ProductController {
     constructor() { }
@@ -17,20 +11,10 @@ class ProductController {
      * Create a new product
      */
     createProduct = async (req: Request, res: Response): Promise<Response> => {
-        // Validate request body
-        const validationResult = validators.createProductSchema.body.safeParse(req.body);
-        if (!validationResult.success) {
-            throw new BadRequestException("Validation Error", {
-                issues: JSON.parse(validationResult.error as unknown as string)
-            });
-        }
-
-        // Extract DTO fields (exclude images which come from req.files)
-        const { images, ...createProductDto } = validationResult.data;
         const files = req.files as Express.Multer.File[] || [];
+        const storeId = req.store!.storeId;
 
-        // Call service to create product
-        const product = await ProductService.createProduct(createProductDto, files);
+        const product = await ProductService.createProduct(req.body, files, storeId);
 
         return successResponse({
             res,
@@ -45,24 +29,12 @@ class ProductController {
      */
     updateProduct = async (req: Request, res: Response): Promise<Response> => {
         const { productId } = req.params;
+        const storeId = req.store!.storeId;
 
-        if (!productId) {
-            throw new BadRequestException("Product ID is required");
-        }
+        // Verify the authenticated store owns this product
+        await this.verifyProductOwnership(productId!, storeId);
 
-        // Validate request body
-        const validationResult = validators.createProductSchema.body.safeParse(req.body);
-        if (!validationResult.success) {
-            throw new BadRequestException("Validation Error", {
-                issues: JSON.parse(validationResult.error as unknown as string)
-            });
-        }
-
-        // Extract DTO fields (exclude images which come from req.files)
-        const { images, ...updateProductDto } = validationResult.data;
-
-        // Call service to update product
-        const updatedProduct = await ProductService.updateProduct(productId, updateProductDto);
+        const updatedProduct = await ProductService.updateProduct(productId!, req.body, storeId);
 
         return successResponse({
             res,
@@ -77,17 +49,16 @@ class ProductController {
      */
     updateProductAttachment = async (req: Request, res: Response): Promise<Response> => {
         const { productId } = req.params;
-
-        if (!productId) {
-            throw new BadRequestException("Missing productId in request params");
-        }
-
+        const storeId = req.store!.storeId;
         const files = (req.files as Express.Multer.File[]) || [];
 
-        // Call service to update attachments
+        // Verify the authenticated store owns this product
+        await this.verifyProductOwnership(productId!, storeId);
+
         const updatedProduct = await ProductService.updateProductAttachment(
-            productId,
+            productId!,
             files,
+            storeId,
             req.body
         );
 
@@ -104,13 +75,12 @@ class ProductController {
      */
     freezeProduct = async (req: Request, res: Response): Promise<Response> => {
         const { productId } = req.params;
+        const storeId = req.store!.storeId;
 
-        if (!productId) {
-            throw new BadRequestException("Product ID is required");
-        }
+        // Verify the authenticated store owns this product
+        await this.verifyProductOwnership(productId!, storeId);
 
-        // Call service to freeze product
-        const result = await ProductService.freezeProduct(productId);
+        const result = await ProductService.freezeProduct(productId!, storeId);
 
         return successResponse({
             res,
@@ -125,15 +95,24 @@ class ProductController {
      */
     restoreProduct = async (req: Request, res: Response): Promise<Response> => {
         const { productId } = req.params;
+        const storeId = req.store!.storeId;
 
-        if (!productId) {
-            throw new BadRequestException("Product ID is required");
-        }
+        // Verify the authenticated store owns this product
+        await this.verifyProductOwnership(productId!, storeId);
 
-        // Call service to restore product
-        await ProductService.restoreProduct(productId);
+        await ProductService.restoreProduct(productId!, storeId);
 
         return successResponse({ res });
+    };
+
+    /**
+     * Verify that the authenticated store owns the product
+     */
+    private verifyProductOwnership = async (productId: string, storeId: string): Promise<void> => {
+        const isOwner = await ProductService.isProductOwner(productId, storeId);
+        if (!isOwner) {
+            throw new ForbiddenException("You can only modify your own products");
+        }
     };
 }
 

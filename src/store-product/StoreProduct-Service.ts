@@ -1,4 +1,4 @@
-import { Types } from "mongoose";
+import { Types, PipelineStage } from "mongoose";
 import { StoreProductModel } from "./StoreProduct-Module";
 import { StoreProductRepository } from "../DB/repository/StoreProduct-Repository";
 import { ProductModel } from "../product/Product-Module";
@@ -149,6 +149,152 @@ class StoreProductService {
         }
 
         return deletedStoreProduct;
+    }
+
+    // ─── Nearby Query Methods ────────────────────────────────────
+
+    /**
+     * Escape special regex characters in a string
+     */
+    private escapeRegex(str: string): string {
+        return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    /**
+     * Build the shared aggregation pipeline for nearby store-product queries
+     */
+    private buildNearbyPipeline(
+        productFilter: Record<string, unknown>,
+        longitude: number,
+        latitude: number,
+        maxDistance: number
+    ): PipelineStage[] {
+        return [
+            // Stage 1: Find nearby stores sorted by distance (must be first stage) 
+            {
+                $geoNear: {
+                    near: { type: "Point", coordinates: [longitude, latitude] },
+                    distanceField: "distance",
+                    maxDistance: maxDistance,
+                    spherical: true,
+                },
+            },
+            // Stage 2: Exclude password from results
+            {
+                $project: {
+                    password: 0,
+                },
+            },
+            // Stage 3: Join with StoreProduct collection
+            {
+                $lookup: {
+                    from: "storeproducts",
+                    let: { storeId: "$_id" },
+                    pipeline: [
+                        {
+                            $match: {
+                                $expr: { $eq: ["$storeId", "$$storeId"] },
+                                isAvailable: true,
+                                ...productFilter,
+                            },
+                        },
+                        // Join product details for each matched store-product
+                        {
+                            $lookup: {
+                                from: "products",
+                                localField: "productId",
+                                foreignField: "_id",
+                                as: "product",
+                            },
+                        },
+                        { $unwind: "$product" },
+                        // Only include non-frozen products
+                        {
+                            $match: {
+                                "product.freezedAt": { $exists: false },
+                            },
+                        },
+                        // Shape the product output
+                        {
+                            $project: {
+                                _id: 0,
+                                productId: "$productId",
+                                productName: "$product.name",
+                                price: 1,
+                                stock: 1,
+                                isAvailable: 1,
+                            },
+                        },
+                    ],
+                    as: "products",
+                },
+            },
+            // Stage 4: Only keep stores that have at least one matching product
+            {
+                $match: {
+                    "products.0": { $exists: true },
+                },
+            },
+        ];
+    }
+
+    /**
+     * Find nearby stores that sell a specific product (by product ID)
+     */
+    async getNearbyStoresForProduct(
+        productId: string,
+        longitude: number,
+        latitude: number,
+        maxDistance: number = 5000
+    ) {
+        // Validate product exists
+        const product = await ProductModel.findById(productId);
+        if (!product) {
+            throw new NotFoundException("Product not found");
+        }
+
+        const pipeline = this.buildNearbyPipeline(
+            { productId: new Types.ObjectId(productId) },
+            longitude,
+            latitude,
+            maxDistance
+        );
+
+        return await StoreModel.aggregate(pipeline);
+    }
+
+    /**
+     * Search for nearby stores selling products matching a name query
+     */
+    async searchNearbyStoresForProduct(
+        query: string,
+        longitude: number,
+        latitude: number,
+        maxDistance: number = 5000
+    ) {
+        // Find product IDs matching the search query
+        const matchingProducts = await ProductModel.find(
+            {
+                name: { $regex: this.escapeRegex(query), $options: 'i' },
+                freezedAt: { $exists: false },
+            },
+            { _id: 1 }
+        ).lean();
+
+        if (matchingProducts.length === 0) {
+            return [];
+        }
+
+        const productIds = matchingProducts.map(p => p._id);
+
+        const pipeline = this.buildNearbyPipeline(
+            { productId: { $in: productIds } },
+            longitude,
+            latitude,
+            maxDistance
+        );
+
+        return await StoreModel.aggregate(pipeline);
     }
 }
 

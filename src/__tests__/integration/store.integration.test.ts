@@ -214,7 +214,7 @@ describe('Store API Integration Tests', () => {
             expect(response.body.data.store.name).toBe('Updated Name');
         });
 
-        test('should return 404 when updating non-existent store', async () => {
+        test('should return 403 when updating a store you do not own', async () => {
             const { token } = await registerStoreAndGetToken();
             const fakeId = '507f1f77bcf86cd799439011';
 
@@ -223,7 +223,7 @@ describe('Store API Integration Tests', () => {
                 .set('Authorization', `Bearer ${token}`)
                 .send({ name: 'Updated Name' });
 
-            expect(response.status).toBe(404);
+            expect(response.status).toBe(403);
         });
 
         test('should update multiple fields', async () => {
@@ -266,7 +266,7 @@ describe('Store API Integration Tests', () => {
             expect(getResponse.status).toBe(404);
         });
 
-        test('should return 404 when deleting non-existent store', async () => {
+        test('should return 403 when deleting a store you do not own', async () => {
             const { token } = await registerStoreAndGetToken();
             const fakeId = '507f1f77bcf86cd799439011';
 
@@ -274,7 +274,7 @@ describe('Store API Integration Tests', () => {
                 .delete(`/api/stores/${fakeId}`)
                 .set('Authorization', `Bearer ${token}`);
 
-            expect(response.status).toBe(404);
+            expect(response.status).toBe(403);
         });
     });
 

@@ -1,44 +1,65 @@
 import express from "express";
 import StoreProductController from "./StoreProduct-Controller";
 import { validation } from "../middleware/middleware-Validation";
-import { asyncHandler } from "../middleware/asyncHandler";
 import * as validators from "./StoreProduct-Validation";
+import { authenticateStore } from "../middleware/auth.middleware";
 
 const router = express.Router();
 
-// Add a product to a store
-router.post(
-    "/stores/:storeId/products",
-    validation(validators.addProductToStoreSchema),
-    asyncHandler(StoreProductController.addProductToStore)
+// ─── Nearby Product-Store Queries (public, specific routes FIRST) ───
+
+// Search nearby stores by product name query
+router.get(
+    "/products/stores/nearby",
+    validation(validators.searchNearbyProductStoresSchema),
+    StoreProductController.searchNearbyProductStores
 );
 
-// Get all products in a store
+// Find nearby stores selling a specific product by ID
+router.get(
+    "/products/:productId/stores/nearby",
+    validation(validators.getNearbyStoresForProductSchema),
+    StoreProductController.getNearbyStoresForProduct
+);
+
+// ─── Standard Store-Product Routes ──────────────────────────────
+
+// Add a product to a store (protected - store owner only)
+router.post(
+    "/stores/:storeId/products",
+    authenticateStore,
+    validation(validators.addProductToStoreSchema),
+    StoreProductController.addProductToStore
+);
+
+// Get all products in a store (public)
 router.get(
     "/stores/:storeId/products",
     validation(validators.getStoreProductsSchema),
-    asyncHandler(StoreProductController.getStoreProducts)
+    StoreProductController.getStoreProducts
 );
 
-// Get all stores selling a product
+// Get all stores selling a product (public)
 router.get(
     "/products/:productId/stores",
     validation(validators.getProductStoresSchema),
-    asyncHandler(StoreProductController.getProductStores)
+    StoreProductController.getProductStores
 );
 
-// Update store-specific product details
+// Update store-specific product details (protected - store owner only)
 router.patch(
     "/stores/:storeId/products/:productId",
+    authenticateStore,
     validation(validators.updateStoreProductSchema),
-    asyncHandler(StoreProductController.updateStoreProduct)
+    StoreProductController.updateStoreProduct
 );
 
-// Remove a product from a store
+// Remove a product from a store (protected - store owner only)
 router.delete(
     "/stores/:storeId/products/:productId",
+    authenticateStore,
     validation(validators.removeProductFromStoreSchema),
-    asyncHandler(StoreProductController.removeProductFromStore)
+    StoreProductController.removeProductFromStore
 );
 
 export default router;
