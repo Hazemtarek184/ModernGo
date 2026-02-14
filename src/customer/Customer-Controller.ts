@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import { BadRequestException, ForbiddenException } from "../utils/error.response";
 import { successResponse } from "../utils/success.response";
 import CustomerService from "./Customer-Service";
+import { uploadFile } from "../utils/s3.config";
 
 class CustomerController {
     constructor() { }
@@ -20,13 +21,31 @@ class CustomerController {
         const { confirmPassword, ...registerDto } = req.body;
 
         // Call service to register customer (file available in req.file for future implementation)
-        const customer = await CustomerService.registerCustomer(registerDto);
+        const { customer, token } = await CustomerService.registerCustomer(registerDto);
+
+
+
+
+
+        const key = await uploadFile({
+            file: req.file as Express.Multer.File,
+            path: `customer/${customer._id}`
+
+        })
+
+        await CustomerService.updateProfilePhotoKey(
+            customer._id.toString(),
+            key
+        );
+
 
         return successResponse({
             res,
             statuscode: 201,
             data: {
                 customer,
+                token,
+                profilePhotoKey: key,
                 // For debugging/development - show that file was received
                 photoReceived: {
                     fieldname: req.file.fieldname,
@@ -37,6 +56,54 @@ class CustomerController {
             }
         });
     };
+
+
+
+
+    // verifyPhoto = async (req: Request, res: Response) => {
+    //     const customerId = req.customer?.customerId;
+
+    //     if (!customerId)
+    //         throw new BadRequestException("Missing customerId from token");
+
+    //     if (!req.file)
+    //         throw new BadRequestException("photo is required");
+
+    //     const customer = await CustomerService.getCustomerProfile(customerId);
+
+    //     const baselineKey = customer.profilePhotoKey;
+    //     if (!baselineKey) 
+    //         throw new BadRequestException("No baseline photo for this customer");
+
+
+    // };
+
+
+    loginPhoto = async (req: Request, res: Response): Promise<Response> => {
+        const customerId = req.customer?.customerId;
+
+        if (!customerId)
+            throw new BadRequestException("Missing customerId from token");
+
+        if (!req.file)
+            throw new BadRequestException("photo is required");
+
+        const loginPhotoValue =
+            `data:${req.file.mimetype};base64,${req.file.buffer.toString("base64")}`;
+
+        const updatedCustomer = await CustomerService.updateLoginPhotoValue(
+            customerId,
+            loginPhotoValue
+        );
+
+        return successResponse({
+            res,
+            statuscode: 200,
+            data: { customer: updatedCustomer }
+        });
+    };
+
+
 
     /**
      * POST /api/customers/login

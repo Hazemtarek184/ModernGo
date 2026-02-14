@@ -59,6 +59,8 @@ export const globalErrorHandling = (
     }
 
     // Unexpected errors — hide internals in production
+    console.error("UNHANDLED ERROR:", error);
+
     return res.status(500).json({
         message: "something went wrong",
         stack: process.env.NODE_ENV === "development" ? error.stack : undefined,

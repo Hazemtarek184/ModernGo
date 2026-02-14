@@ -42,17 +42,20 @@ const customerSchema = new Schema<ICustomer>(
             select: false
         },
 
-        profilePhoto: {
+        profilePhotoKey: {
             type: String,
             required: false
         },
+
+        loginPhotoValue: { type: String, required: false },
+
 
         address: { type: addressSchema },
     },
     {
         timestamps: true,
         toJSON: { virtuals: true },
-        toObject: { virtuals: false }
+        toObject: { virtuals: true }
     }
 );
 

@@ -44,9 +44,56 @@ interface UpdatePasswordDto {
 }
 
 class CustomerService {
+    findByIdAndUpdate(_id: Types.ObjectId, arg1: { profilePhotoKey: string; }) {
+        throw new Error("Method not implemented.");
+    }
+
+    // findByIdAndUpdate(_id: any, arg1: { profilePhotoKey: any; }) {
+    //     throw new Error("Method not implemented.");
+    // }
+
     private customerRepository = new CustomerRepository(CustomerModel);
 
     constructor() { }
+
+
+    async updateProfilePhotoKey(customerId: string, profilePhotoKey: string) {
+        if (!Types.ObjectId.isValid(customerId)) {
+            throw new BadRequestException("Invalid customerId format");
+        }
+
+
+        const updatedCustomer = await this.customerRepository.findOneAndUpdate({
+            filter: { _id: new Types.ObjectId(customerId) },
+            update: { profilePhotoKey },
+            options: { new: true }
+        });
+
+        if (!updatedCustomer) {
+            throw new NotFoundException("Customer not found");
+        }
+
+        return updatedCustomer;
+    }
+
+
+    async updateLoginPhotoValue(customerId: string, loginPhotoValue: string) {
+        if (!Types.ObjectId.isValid(customerId)) {
+            throw new BadRequestException("Invalid customerId format");
+        }
+
+        const updatedCustomer = await this.customerRepository.findOneAndUpdate({
+            filter: { _id: new Types.ObjectId(customerId) },
+            update: { loginPhotoValue },
+            options: { new: true }
+        });
+
+        if (!updatedCustomer) throw new NotFoundException("Customer not found");
+        return updatedCustomer;
+    }
+
+
+
 
     /**
      * Register a new customer
