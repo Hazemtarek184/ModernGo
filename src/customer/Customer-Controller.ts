@@ -1,4 +1,5 @@
 import type { Request, Response } from "express";
+import { Types } from "mongoose";
 import { BadRequestException, ForbiddenException } from "../utils/error.response";
 import { successResponse } from "../utils/success.response";
 import CustomerService from "./Customer-Service";
@@ -9,35 +10,31 @@ class CustomerController {
 
     /**
      * POST /api/customers/register
-     * Register a new customer
+     * Register a new customer (profile photo required)
      */
     registerCustomer = async (req: Request, res: Response): Promise<Response> => {
-        // Validate file upload
         if (!req.file) {
             throw new BadRequestException("Profile photo is required");
         }
 
+        // Pre-generate the customer ID so we can use it in the S3 path
+        const customerId = new Types.ObjectId();
+
+        // Upload profile photo to S3 under the customer's folder
+        const profilePhotoKey = await uploadFile({
+            file: req.file,
+            path: `customer/${customerId.toString()}`
+        });
+
         // Extract DTO fields (exclude confirmPassword — already validated by middleware)
         const { confirmPassword, ...registerDto } = req.body;
 
-        // Call service to register customer (file available in req.file for future implementation)
-        const { customer, token } = await CustomerService.registerCustomer(registerDto);
-
-
-
-
-
-        const key = await uploadFile({
-            file: req.file as Express.Multer.File,
-            path: `customer/${customer._id}`
-
-        })
-
-        await CustomerService.updateProfilePhotoKey(
-            customer._id.toString(),
-            key
-        );
-
+        // Register customer with pre-generated ID and photo key in a single DB call
+        const { customer, token } = await CustomerService.registerCustomer({
+            ...registerDto,
+            _id: customerId,
+            profilePhotoKey,
+        });
 
         return successResponse({
             res,
@@ -45,8 +42,6 @@ class CustomerController {
             data: {
                 customer,
                 token,
-                profilePhotoKey: key,
-                // For debugging/development - show that file was received
                 photoReceived: {
                     fieldname: req.file.fieldname,
                     originalname: req.file.originalname,
@@ -57,36 +52,18 @@ class CustomerController {
         });
     };
 
-
-
-
-    // verifyPhoto = async (req: Request, res: Response) => {
-    //     const customerId = req.customer?.customerId;
-
-    //     if (!customerId)
-    //         throw new BadRequestException("Missing customerId from token");
-
-    //     if (!req.file)
-    //         throw new BadRequestException("photo is required");
-
-    //     const customer = await CustomerService.getCustomerProfile(customerId);
-
-    //     const baselineKey = customer.profilePhotoKey;
-    //     if (!baselineKey) 
-    //         throw new BadRequestException("No baseline photo for this customer");
-
-
-    // };
-
-
-    loginPhoto = async (req: Request, res: Response): Promise<Response> => {
+    /**
+     * POST /api/customers/upload-verification-photo
+     * Upload a verification photo (socket-based verification is a future feature)
+     */
+    uploadVerificationPhoto = async (req: Request, res: Response): Promise<Response> => {
         const customerId = req.customer?.customerId;
 
         if (!customerId)
             throw new BadRequestException("Missing customerId from token");
 
         if (!req.file)
-            throw new BadRequestException("photo is required");
+            throw new BadRequestException("Verification photo is required");
 
         const loginPhotoValue =
             `data:${req.file.mimetype};base64,${req.file.buffer.toString("base64")}`;

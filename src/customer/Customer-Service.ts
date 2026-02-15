@@ -6,11 +6,13 @@ import bcrypt from "bcrypt";
 import { generateToken } from "../utils/jwt.utils";
 
 interface RegisterCustomerDto {
+    _id: Types.ObjectId;
     firstName: string;
     lastName: string;
     email: string;
     phone: string;
     password: string;
+    profilePhotoKey: string;
     address?: {
         street?: string | undefined;
         city?: string | undefined;
@@ -44,39 +46,12 @@ interface UpdatePasswordDto {
 }
 
 class CustomerService {
-    findByIdAndUpdate(_id: Types.ObjectId, arg1: { profilePhotoKey: string; }) {
-        throw new Error("Method not implemented.");
-    }
-
-    // findByIdAndUpdate(_id: any, arg1: { profilePhotoKey: any; }) {
-    //     throw new Error("Method not implemented.");
-    // }
-
     private customerRepository = new CustomerRepository(CustomerModel);
 
     constructor() { }
 
 
-    async updateProfilePhotoKey(customerId: string, profilePhotoKey: string) {
-        if (!Types.ObjectId.isValid(customerId)) {
-            throw new BadRequestException("Invalid customerId format");
-        }
-
-
-        const updatedCustomer = await this.customerRepository.findOneAndUpdate({
-            filter: { _id: new Types.ObjectId(customerId) },
-            update: { profilePhotoKey },
-            options: { new: true }
-        });
-
-        if (!updatedCustomer) {
-            throw new NotFoundException("Customer not found");
-        }
-
-        return updatedCustomer;
-    }
-
-
+    /** Update the login photo value for verification */
     async updateLoginPhotoValue(customerId: string, loginPhotoValue: string) {
         if (!Types.ObjectId.isValid(customerId)) {
             throw new BadRequestException("Invalid customerId format");
@@ -114,11 +89,13 @@ class CustomerService {
         // Create customer (password will be hashed by pre-save hook)
         const [customer] = await this.customerRepository.create({
             data: [{
+                _id: dto._id,
                 firstName: dto.firstName,
                 lastName: dto.lastName,
                 email: dto.email.toLowerCase().trim(),
                 phone: dto.phone.trim(),
                 password: dto.password,
+                profilePhotoKey: dto.profilePhotoKey,
                 address: dto.address,
             }]
         });

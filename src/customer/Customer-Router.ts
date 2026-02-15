@@ -10,7 +10,6 @@ const router = express.Router();
 // Register a new customer
 router.post(
     "/register",
-
     cloudFileUpload({
         validation: fileValidation.image,
         storageApproach: StorageEnum.memory,
@@ -20,52 +19,23 @@ router.post(
     CustomerController.registerCustomer
 );
 
-
-// router.post(
-//     "/verify-photo",
-//     authenticateCustomer,
-//     cloudFileUpload({
-//         validation: fileValidation.image,
-//         storageApproach: StorageEnum.memory,
-//         maxSizeMB: 5
-//     }).single("photo"),
-//     CustomerController.verifyPhoto
-
-// )
-
-
 // Login customer
-
-router.post(
-    "/login-photo",
-    authenticateCustomer,
-    cloudFileUpload({
-        validation: fileValidation.image,
-        storageApproach: StorageEnum.memory,
-        maxSizeMB: 5
-    }).single("photo"),
-    CustomerController.loginPhoto
-);
-
-
-
 router.post(
     "/login",
     validation(validators.loginCustomerSchema),
     CustomerController.loginCustomer
 );
 
-//Login to store
+// Upload verification photo (socket-based verification is a future feature)
 router.post(
-    "/register",
-
+    "/upload-verification-photo",
+    authenticateCustomer,
     cloudFileUpload({
         validation: fileValidation.image,
         storageApproach: StorageEnum.memory,
         maxSizeMB: 5
-    }).single('profilePhoto'),
-    validation(validators.registerCustomerSchema),
-    CustomerController.registerCustomer
+    }).single("photo"),
+    CustomerController.uploadVerificationPhoto
 );
 
 // Get customer profile (Protected route)

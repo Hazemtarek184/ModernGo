@@ -44,11 +44,8 @@ const customerSchema = new Schema<ICustomer>(
 
         profilePhotoKey: {
             type: String,
-            required: false
+            required: true
         },
-
-        loginPhotoValue: { type: String, required: false },
-
 
         address: { type: addressSchema },
     },
