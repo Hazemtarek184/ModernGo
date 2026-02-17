@@ -38,6 +38,13 @@ router.post(
     CustomerController.uploadVerificationPhoto
 );
 
+// Validate token & get authenticated customer's profile
+router.get(
+    "/me",
+    authenticateCustomer,
+    CustomerController.getMe
+);
+
 // Get customer profile (Protected route)
 router.get(
     "/:customerId",

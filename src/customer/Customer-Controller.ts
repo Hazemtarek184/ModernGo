@@ -98,6 +98,21 @@ class CustomerController {
     };
 
     /**
+     * GET /api/customers/me
+     * Validate token and return the authenticated customer's profile
+     */
+    getMe = async (req: Request, res: Response): Promise<Response> => {
+        const customerId = req.customer!.customerId;
+        const customer = await CustomerService.getCustomerProfile(customerId);
+
+        return successResponse({
+            res,
+            statuscode: 200,
+            data: { customer }
+        });
+    };
+
+    /**
      * GET /api/customers/:customerId
      * Get customer profile
      */
