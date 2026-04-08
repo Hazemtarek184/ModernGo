@@ -160,19 +160,26 @@ export const createPreSignUploadLink = async ({
     Bucket = process.env.AWS_BUCKET_NAME as string,
     path = "general",
     ContentType,
-    Originalname,
     expiresIn = Number(process.env.AWS_PRE_SIGN_URL_EXPIRES_IN) || 60,
 }: {
     Bucket?: string,
     path?: string,
     expiresIn?: number,
     ContentType: string,
-    Originalname: string,
 }): Promise<{ url: string; key: string }> => {
+    const ext =
+        ContentType === "image/png" ? "png" :
+            ContentType === "image/webp" ? "webp" :
+                ContentType === "image/gif" ? "gif" :
+                    "jpg";
+
+    const Key = `${process.env.APPLICATION_NAME}/${path}/${uuid()}.${ext}`;
+
     const command = new PutObjectCommand({
         Bucket,
-        Key: `${process.env.APPLICATION_NAME}/${path}/${uuid()}_${Originalname}`,
+        Key: Key,
         ContentType,
+
     });
 
     const url = await getSignedUrl(s3Config(), command, { expiresIn });

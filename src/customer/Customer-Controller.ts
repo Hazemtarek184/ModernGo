@@ -3,37 +3,25 @@ import { Types } from "mongoose";
 import { BadRequestException, ForbiddenException } from "../utils/error.response";
 import { successResponse } from "../utils/success.response";
 import CustomerService from "./Customer-Service";
-import { uploadFile } from "../utils/s3.config";
+import { getFile, uploadFile } from "../utils/s3.config";
 
 class CustomerController {
     constructor() { }
 
     /**
      * POST /api/customers/register
-     * Register a new customer (profile photo required)
+     * Register without photo
      */
     registerCustomer = async (req: Request, res: Response): Promise<Response> => {
-        if (!req.file) {
-            throw new BadRequestException("Profile photo is required");
-        }
 
-        // Pre-generate the customer ID so we can use it in the S3 path
         const customerId = new Types.ObjectId();
 
-        // Upload profile photo to S3 under the customer's folder
-        const profilePhotoKey = await uploadFile({
-            file: req.file,
-            path: `customer/${customerId.toString()}`
-        });
-
-        // Extract DTO fields (exclude confirmPassword — already validated by middleware)
         const { confirmPassword, ...registerDto } = req.body;
 
-        // Register customer with pre-generated ID and photo key in a single DB call
         const { customer, token } = await CustomerService.registerCustomer({
             ...registerDto,
             _id: customerId,
-            profilePhotoKey,
+            profilePhotoKey: ""
         });
 
         return successResponse({
@@ -41,53 +29,73 @@ class CustomerController {
             statuscode: 201,
             data: {
                 customer,
-                token,
-                photoReceived: {
-                    fieldname: req.file.fieldname,
-                    originalname: req.file.originalname,
-                    mimetype: req.file.mimetype,
-                    size: req.file.size
-                }
+                token
             }
         });
     };
 
     /**
-     * POST /api/customers/upload-verification-photo
-     * Upload a verification photo (socket-based verification is a future feature)
+     * GET profile photo (proxy)
      */
-    uploadVerificationPhoto = async (req: Request, res: Response): Promise<Response> => {
+    getMyProfilePhoto = async (req: Request, res: Response): Promise<void> => {
+        const customerId = req.customer?.customerId;
+
+        if (!customerId) {
+            throw new BadRequestException("Missing customerId from token");
+        }
+
+        const key = await CustomerService.getProfilePhotoKey(customerId);
+        const file = await getFile({ Key: key });
+
+        if (!file.Body) {
+            throw new BadRequestException("Failed to load profile photo");
+        }
+
+        if (file.ContentType) {
+            res.setHeader("Content-Type", file.ContentType);
+        }
+
+        if (file.ContentLength) {
+            res.setHeader("Content-Length", file.ContentLength.toString());
+        }
+
+        res.setHeader("Cache-Control", "public, max-age=86400");
+        (file.Body as NodeJS.ReadableStream).pipe(res);
+    };
+
+    /**
+     * Upload profile photo
+     */
+    uploadProfilePhoto = async (req: Request, res: Response): Promise<Response> => {
         const customerId = req.customer?.customerId;
 
         if (!customerId)
             throw new BadRequestException("Missing customerId from token");
 
         if (!req.file)
-            throw new BadRequestException("Verification photo is required");
+            throw new BadRequestException("photo is required");
 
-        const loginPhotoValue =
-            `data:${req.file.mimetype};base64,${req.file.buffer.toString("base64")}`;
+        const key = await uploadFile({
+            file: req.file as Express.Multer.File,
+            path: `customer/${customerId}/profile`
+        });
 
-        const updatedCustomer = await CustomerService.updateLoginPhotoValue(
-            customerId,
-            loginPhotoValue
-        );
+        await CustomerService.updateProfilePhotoKey(customerId, key);
 
         return successResponse({
             res,
             statuscode: 200,
-            data: { customer: updatedCustomer }
+            data: {
+                message: "Photo uploaded successfully",
+                key
+            }
         });
     };
 
-
-
     /**
-     * POST /api/customers/login
-     * Customer login
+     * POST /login
      */
     loginCustomer = async (req: Request, res: Response): Promise<Response> => {
-        // Call service to login customer (body already validated by middleware)
         const customer = await CustomerService.loginCustomer(req.body);
 
         return successResponse({
@@ -98,18 +106,15 @@ class CustomerController {
     };
 
     /**
-     * GET /api/customers/:customerId
-     * Get customer profile
+     * GET profile
      */
     getCustomerProfile = async (req: Request, res: Response): Promise<Response> => {
         const { customerId } = req.params;
 
-        // Verify the authenticated customer owns this resource
         if (req.customer!.customerId !== customerId) {
             throw new ForbiddenException("You can only view your own profile");
         }
 
-        // Call service to get customer profile
         const customer = await CustomerService.getCustomerProfile(customerId!);
 
         return successResponse({
@@ -120,18 +125,15 @@ class CustomerController {
     };
 
     /**
-     * PATCH /api/customers/:customerId
-     * Update customer profile
+     * PATCH profile
      */
     updateCustomerProfile = async (req: Request, res: Response): Promise<Response> => {
         const { customerId } = req.params;
 
-        // Verify the authenticated customer owns this resource
         if (req.customer!.customerId !== customerId) {
             throw new ForbiddenException("You can only modify your own profile");
         }
 
-        // Call service to update customer profile (body already validated by middleware)
         const updatedCustomer = await CustomerService.updateCustomerProfile(
             customerId!,
             req.body
@@ -145,21 +147,17 @@ class CustomerController {
     };
 
     /**
-     * PATCH /api/customers/:customerId/password
-     * Update customer password
+     * PATCH password
      */
     updatePassword = async (req: Request, res: Response): Promise<Response> => {
         const { customerId } = req.params;
 
-        // Verify the authenticated customer owns this resource
         if (req.customer!.customerId !== customerId) {
             throw new ForbiddenException("You can only change your own password");
         }
 
-        // Extract DTO fields (exclude confirmPassword — already validated by middleware)
         const { confirmPassword, ...updatePasswordDto } = req.body;
 
-        // Call service to update password
         const result = await CustomerService.updatePassword(customerId!, updatePasswordDto);
 
         return successResponse({

@@ -37,10 +37,10 @@ export const registerCustomerSchema = {
             path: ["confirmPassword"]
         }
     ),
-    file: z.object({
-        fieldname: z.literal('profilePhoto'),
-        mimetype: z.enum(['image/jpeg', 'image/jpg', 'image/png', 'image/gif']),
-    })
+    // file: z.object({
+    //     fieldname: z.literal('profilePhoto'),
+    //     mimetype: z.enum(['image/jpeg', 'image/jpg', 'image/png', 'image/gif']),
+    // })
 };
 
 // Login customer schema

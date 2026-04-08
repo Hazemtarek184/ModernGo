@@ -1,14 +1,15 @@
-import express from 'express';
+import express, { response } from 'express';
 import "dotenv/config.js";
 import cors from 'cors';
 import bodyParser from 'body-parser';
 import connectDB from './DB/Connection';
 import storesRouter from './store/Store-Router';
-import { globalErrorHandling } from './utils/error.response';
+import { BadRequestException, globalErrorHandling } from './utils/error.response';
 import type { Request, Response } from "express";
 import productsRouter from './product/Product-Router';
 import storeProductsRouter from './store-product/StoreProduct-Router';
 import customersRouter from './customer/Customer-Router';
+import { createGetPreSignedLink } from './utils/s3.config';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -53,6 +54,26 @@ app.use("/api/stores", storesRouter);
 app.use("/api/products", productsRouter);
 app.use("/api/customers", customersRouter);
 app.use("/api", storeProductsRouter); // Handles nested routes like /api/stores/:id/products
+
+//get assets
+app.get("/upload/*path", async (req, res): Promise<Response> => {
+    const { path } = req.params as { path: string[] };
+    if (!path?.length) {
+        throw new BadRequestException("validation error", {
+            validationErrors: [
+                {
+                    key: "params",
+                    issues: [{ path: ["path"], message: "missing asset path" }]
+                }
+            ]
+        });
+    }
+
+    const Key = path.join("/");
+    const url = await createGetPreSignedLink({ Key })
+    return res.json({ url })
+})
+
 
 // Catch-all for invalid routes (must be after all valid routes)
 app.use((req: Request, res: Response) => {

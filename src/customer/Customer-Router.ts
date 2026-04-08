@@ -7,38 +7,35 @@ import { cloudFileUpload, fileValidation, StorageEnum } from "../utils/cloud.mul
 
 const router = express.Router();
 
-// Register a new customer
-router.post(
-    "/register",
-    cloudFileUpload({
-        validation: fileValidation.image,
-        storageApproach: StorageEnum.memory,
-        maxSizeMB: 5
-    }).single('profilePhoto'),
-    validation(validators.registerCustomerSchema),
-    CustomerController.registerCustomer
+router.get(
+    "/me/profile-photo",
+    authenticateCustomer,
+    CustomerController.getMyProfilePhoto
 );
 
-// Login customer
 router.post(
-    "/login",
-    validation(validators.loginCustomerSchema),
-    CustomerController.loginCustomer
-);
-
-// Upload verification photo (socket-based verification is a future feature)
-router.post(
-    "/upload-verification-photo",
+    "/profile-photo",
     authenticateCustomer,
     cloudFileUpload({
         validation: fileValidation.image,
         storageApproach: StorageEnum.memory,
         maxSizeMB: 5
     }).single("photo"),
-    CustomerController.uploadVerificationPhoto
+    CustomerController.uploadProfilePhoto
 );
 
-// Get customer profile (Protected route)
+router.post(
+    "/login",
+    validation(validators.loginCustomerSchema),
+    CustomerController.loginCustomer
+);
+
+router.post(
+    "/register",
+    validation(validators.registerCustomerSchema),
+    CustomerController.registerCustomer
+);
+
 router.get(
     "/:customerId",
     authenticateCustomer,
@@ -46,7 +43,6 @@ router.get(
     CustomerController.getCustomerProfile
 );
 
-// Update customer profile (Protected route)
 router.patch(
     "/:customerId",
     authenticateCustomer,
@@ -54,7 +50,6 @@ router.patch(
     CustomerController.updateCustomerProfile
 );
 
-// Update customer password (Protected route)
 router.patch(
     "/:customerId/password",
     authenticateCustomer,
