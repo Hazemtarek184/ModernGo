@@ -4,6 +4,9 @@ import { StoreRepository } from "../DB/repository/Store-Repository";
 import { BadRequestException, NotFoundException } from "../utils/error.response";
 import bcrypt from "bcrypt";
 import { generateToken } from "../utils/jwt.utils";
+import { uploadFile, deleteFile } from "../utils/s3.config"; // أو نفس path الحقيقي عندك
+import { StorageEnum } from "../utils/cloud.multer"; // أو نفس path الحقيقي عندك
+import { getFile } from "../utils/s3.config";
 
 interface RegisterStoreDto {
     name: string;
@@ -158,7 +161,7 @@ class StoreService {
         return await StoreModel.find().lean();
     }
 
-    /**
+    /** 
      * Get store by ID
      */
     async getStoreById(storeId: string) {
@@ -212,6 +215,78 @@ class StoreService {
         }
 
         return updatedStore;
+    }
+
+    ///////proxy///////
+    async uploadStoreLogo(storeId: string, file: Express.Multer.File) {
+        if (!Types.ObjectId.isValid(storeId)) {
+            throw new BadRequestException("Invalid storeId format");
+        }
+
+        if (!file) {
+            throw new BadRequestException("Logo file is required");
+        }
+
+        const store = await this.storeRepository.findOne({
+            filter: { _id: new Types.ObjectId(storeId) }
+        });
+
+        if (!store) {
+            throw new NotFoundException("Store not found");
+        }
+
+        const key = await uploadFile({
+            file,
+            path: "stores",
+            storageApproach: StorageEnum.memory,
+        });
+
+        if (store.logo?.key) {
+            await deleteFile({ Key: store.logo.key });
+        }
+
+        const url = `https://${process.env.AWS_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
+
+        const updatedStore = await this.storeRepository.findOneAndUpdate({
+            filter: { _id: new Types.ObjectId(storeId) },
+            update: {
+                logo: {
+                    url,
+                    key
+                }
+            },
+            options: { new: true }
+        });
+
+        if (!updatedStore) {
+            throw new BadRequestException("Failed to upload store logo");
+        }
+
+        return updatedStore;
+    }
+
+    async getStoreLogoFile(storeId: string) {
+        if (!Types.ObjectId.isValid(storeId)) {
+            throw new BadRequestException("Invalid storeId format");
+        }
+
+        const store = await this.storeRepository.findOne({
+            filter: { _id: new Types.ObjectId(storeId) }
+        });
+
+        if (!store) {
+            throw new NotFoundException("Store not found");
+        }
+
+        if (!store.logo?.key) {
+            throw new NotFoundException("Store logo not found");
+        }
+
+        const file = await getFile({
+            Key: store.logo.key
+        });
+
+        return file;
     }
 
     /**

@@ -17,6 +17,10 @@ export interface IStore {
     location: ILocation;
     categories: string[];
 
+    logo?: {
+        url?: string | null;
+        key?: string | null;
+    };
     createdAt?: Date;
     updatedAt?: Date;
 }

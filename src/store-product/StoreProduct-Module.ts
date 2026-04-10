@@ -27,6 +27,7 @@ const storeProductSchema = new Schema<IStoreProduct>(
             type: Boolean,
             default: true,
         },
+
     },
     {
         timestamps: true,

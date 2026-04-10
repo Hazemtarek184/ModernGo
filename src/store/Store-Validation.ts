@@ -121,3 +121,9 @@ export const categoryStoreSchema = {
         category: z.string().min(1, "Category is required").trim(),
     })
 };
+
+export const uploadStoreLogoSchema = {
+    params: z.object({
+        storeId: generalFields.id,
+    })
+};

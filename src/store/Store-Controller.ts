@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import { successResponse } from "../utils/success.response";
 import { ForbiddenException } from "../utils/error.response";
 import StoreService from "./Store-Service";
+import { Readable } from "stream";
 
 class StoreController {
     constructor() { }
@@ -85,7 +86,42 @@ class StoreController {
             message: "Store updated successfully"
         });
     };
+    uploadStoreLogo = async (req: Request, res: Response): Promise<Response> => {
+        const { storeId } = req.params;
 
+        if (req.store!.storeId !== storeId) {
+            throw new ForbiddenException("You can only update your own store logo");
+        }
+
+        const store = await StoreService.uploadStoreLogo(
+            storeId!,
+            req.file!
+        );
+
+        return successResponse({
+            res,
+            statuscode: 200,
+            message: "Logo uploaded successfully",
+            data: { store }
+        });
+    };
+
+    getStoreLogo = async (req: Request, res: Response): Promise<void> => {
+        const { storeId } = req.params;
+
+        const file = await StoreService.getStoreLogoFile(storeId!);
+
+        if (!file.Body) {
+            throw new Error("File body is empty");
+        }
+
+        if (file.ContentType) {
+            res.setHeader("Content-Type", file.ContentType);
+        }
+
+        const stream = file.Body as Readable;
+        stream.pipe(res);
+    };
     /**
      * DELETE /api/stores/:storeId
      * Delete store

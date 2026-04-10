@@ -6,6 +6,9 @@ import { authenticateStore } from "../middleware/auth.middleware";
 
 const router = express.Router();
 
+import multer from "multer";
+
+const upload = multer({ storage: multer.memoryStorage() });
 // ─── Public Auth Routes ─────────────────────────────────────
 
 router.post(
@@ -20,6 +23,20 @@ router.post(
     StoreController.loginStore
 );
 
+
+router.patch(
+    "/:storeId/logo",
+    authenticateStore,
+    upload.single("logo"),
+    validation(validators.uploadStoreLogoSchema),
+    StoreController.uploadStoreLogo
+);
+
+router.get(
+    "/:storeId/logo",
+    validation(validators.getStoreSchema),
+    StoreController.getStoreLogo
+);
 // ─── Public Read Routes (specific routes FIRST) ─────────────
 
 router.get(
