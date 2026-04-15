@@ -1,7 +1,8 @@
 import type { Request, Response } from "express";
 import { successResponse } from "../utils/success.response";
-import { ForbiddenException } from "../utils/error.response";
+import { ForbiddenException, BadRequestException } from "../utils/error.response";
 import StoreService from "./Store-Service";
+import { compressAndEncodePhoto, validatePhotoSize } from "../utils/photo.utils";
 
 class StoreController {
     constructor() { }
@@ -11,7 +12,19 @@ class StoreController {
      * Register a new store
      */
     registerStore = async (req: Request, res: Response): Promise<Response> => {
-        const result = await StoreService.registerStore(req.body);
+        if (!req.file) {
+            throw new BadRequestException("Profile photo is required");
+        }
+
+        validatePhotoSize(req.file, 5);
+        const profilePhoto = await compressAndEncodePhoto(req.file);
+
+        const { confirmPassword, ...bodyFields } = req.body;
+
+        const result = await StoreService.registerStore({
+            ...bodyFields,
+            profilePhoto,
+        });
 
         return successResponse({
             res,

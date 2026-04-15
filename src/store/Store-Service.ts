@@ -17,6 +17,7 @@ interface RegisterStoreDto {
         address?: string | undefined;
     };
     categories: string[];
+    profilePhoto?: string;
 }
 
 interface LoginStoreDto {
@@ -68,6 +69,7 @@ class StoreService {
                 phone: dto.phone.trim(),
                 location: dto.location,
                 categories: dto.categories,
+                profilePhoto: dto.profilePhoto,
             }]
         });
 
@@ -274,7 +276,7 @@ class StoreService {
     async findStoresByCategory(category: string) {
         return await StoreModel.find({
             categories: category
-        }).lean();
+        }).select('-profilePhoto').lean();
     }
 
     /**

@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import { BadRequestException, ForbiddenException } from "../utils/error.response";
 import { successResponse } from "../utils/success.response";
 import CustomerService from "./Customer-Service";
+import { compressAndEncodePhoto, validatePhotoSize } from "../utils/photo.utils";
 
 class CustomerController {
     constructor() { }
@@ -16,25 +17,25 @@ class CustomerController {
             throw new BadRequestException("Profile photo is required");
         }
 
-        // Extract DTO fields (exclude confirmPassword — already validated by middleware)
-        const { confirmPassword, ...registerDto } = req.body;
+        // Validate photo size (max 5MB)
+        validatePhotoSize(req.file, 5);
 
-        // Call service to register customer (file available in req.file for future implementation)
-        const customer = await CustomerService.registerCustomer(registerDto);
+        // Convert and aggressively compress photo buffer using sharp
+        const profilePhoto = await compressAndEncodePhoto(req.file);
+
+        // Extract DTO fields (exclude confirmPassword — already validated by middleware)
+        const { confirmPassword, ...bodyFields } = req.body;
+
+        const result = await CustomerService.registerCustomer({
+            ...bodyFields,
+            profilePhoto,
+        });
 
         return successResponse({
             res,
             statuscode: 201,
-            data: {
-                customer,
-                // For debugging/development - show that file was received
-                photoReceived: {
-                    fieldname: req.file.fieldname,
-                    originalname: req.file.originalname,
-                    mimetype: req.file.mimetype,
-                    size: req.file.size
-                }
-            }
+            data: result,
+            message: "Customer registered successfully"
         });
     };
 
@@ -44,7 +45,25 @@ class CustomerController {
      */
     loginCustomer = async (req: Request, res: Response): Promise<Response> => {
         // Call service to login customer (body already validated by middleware)
-        const customer = await CustomerService.loginCustomer(req.body);
+        const result = await CustomerService.loginCustomer(req.body);
+
+        return successResponse({
+            res,
+            statuscode: 200,
+            data: result
+        });
+    };
+
+    /**
+     * GET /api/customers/me
+     * Get the logged-in customer's own profile without passing an ID
+     */
+    getMe = async (req: Request, res: Response): Promise<Response> => {
+        // Safe to use req.customer!.customerId because authenticateCustomer middleware ensures it
+        const customerId = req.customer!.customerId;
+
+        // Call service to get customer profile
+        const customer = await CustomerService.getCustomerProfile(customerId);
 
         return successResponse({
             res,
@@ -122,6 +141,45 @@ class CustomerController {
             res,
             statuscode: 200,
             data: result
+        });
+    };
+
+    // ─── AI Verification Photo ──────────────────────────────────
+
+    /**
+     * POST /api/customers/:customerId/verify-photo
+     * Submit a live photo for AI-based identity verification.
+     * Called after login — the photo is forwarded to the AI service via socket.
+     *
+     * TODO: Complete socket integration when AI service is ready
+     */
+    submitVerificationPhoto = async (req: Request, res: Response): Promise<Response> => {
+        const { customerId } = req.params;
+
+        // Verify the authenticated customer owns this resource
+        if (req.customer!.customerId !== customerId) {
+            throw new ForbiddenException("You can only submit your own verification photo");
+        }
+
+        // Validate file upload
+        if (!req.file) {
+            throw new BadRequestException("Verification photo is required");
+        }
+
+        // Validate photo size (max 5MB)
+        validatePhotoSize(req.file, 5);
+
+        // Convert and aggressively compress photo buffer using sharp
+        const photoDataUri = await compressAndEncodePhoto(req.file);
+
+        // Call service to process the verification photo
+        const result = await CustomerService.processVerificationPhoto(customerId!, photoDataUri);
+
+        return successResponse({
+            res,
+            statuscode: 200,
+            data: result,
+            message: "Verification photo submitted"
         });
     };
 }

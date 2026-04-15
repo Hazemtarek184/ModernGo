@@ -45,7 +45,8 @@ const storeSchema = new Schema<IStore>(
         address: { type: String, required: true, trim: true },
         phone: { type: String, required: true, trim: true },
         location: { type: locationSchema, required: true },
-        categories: [{ type: String, required: true }]
+        categories: [{ type: String, required: true }],
+        profilePhoto: { type: String, required: false }
     },
     {
         timestamps: true

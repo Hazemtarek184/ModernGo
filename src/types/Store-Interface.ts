@@ -16,6 +16,7 @@ export interface IStore {
     phone: string;
     location: ILocation;
     categories: string[];
+    profilePhoto?: string;
 
     createdAt?: Date;
     updatedAt?: Date;

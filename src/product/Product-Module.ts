@@ -7,7 +7,6 @@ const productSchema = new Schema<IProduct>(
         slug: { type: String, minlength: 2, maxlength: 50, required: true },
 
         description: { type: String, minlength: 2, maxlength: 5000, required: true },
-        assistFolderId: { type: String, required: true },
 
         images: [{ type: String }],
         discountPercent: { type: Number, default: 0, min: 0, max: 100 },

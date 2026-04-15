@@ -3,13 +3,29 @@ import StoreController from "./Store-Controller";
 import { validation } from "../middleware/middleware-Validation";
 import * as validators from "./Store-Validation";
 import { authenticateStore } from "../middleware/auth.middleware";
+import { fileUpload, fileValidation } from "../utils/cloud.multer";
+import type { Request, Response, NextFunction } from "express";
 
 const router = express.Router();
+
+// ─── JSON Parsing Middleware ──────────────────────────────────
+// React FormData stringifies nested objects. This safely parses them back.
+const parseMultipartJson = (req: Request, res: Response, next: NextFunction) => {
+    if (req.body.location && typeof req.body.location === 'string') {
+        try { req.body.location = JSON.parse(req.body.location); } catch (e) {}
+    }
+    if (req.body.categories && typeof req.body.categories === 'string') {
+        try { req.body.categories = JSON.parse(req.body.categories); } catch (e) {}
+    }
+    next();
+};
 
 // ─── Public Auth Routes ─────────────────────────────────────
 
 router.post(
     "/register",
+    fileUpload({ validation: fileValidation.image, maxSizeMB: 5 }).single('profilePhoto'),
+    parseMultipartJson,
     validation(validators.registerStoreSchema),
     StoreController.registerStore
 );
@@ -40,7 +56,10 @@ router.get(
     StoreController.getStoresByCategory
 );
 
-router.get("/", StoreController.getStores);
+router.get(
+    "/",
+    StoreController.getStores
+);
 
 router.get(
     "/:storeId",

@@ -44,7 +44,8 @@ const customerSchema = new Schema<ICustomer>(
 
         profilePhoto: {
             type: String,
-            required: false
+            required: false,
+            select: false
         },
 
         address: { type: addressSchema },

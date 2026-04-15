@@ -1,10 +1,35 @@
 import type { Request, Response } from "express";
 import { ForbiddenException } from "../utils/error.response";
 import { successResponse } from "../utils/success.response";
+import { compressAndEncodePhoto, validatePhotoSize } from "../utils/photo.utils";
 import ProductService from "./Product-Service";
 
 class ProductController {
     constructor() { }
+
+    /**
+     * GET /api/products
+     * Get all products with pagination and filters
+     */
+    getAllProducts = async (req: Request, res: Response): Promise<Response> => {
+        const query = req.query as any;
+
+        const result = await ProductService.getAllProducts({
+            page: parseInt(query.page) || 1,
+            limit: parseInt(query.limit) || 10,
+            search: query.search,
+            minPrice: query.minPrice ? parseFloat(query.minPrice) : undefined,
+            maxPrice: query.maxPrice ? parseFloat(query.maxPrice) : undefined,
+            sortBy: query.sortBy || 'createdAt',
+            sortOrder: query.sortOrder || 'desc',
+        });
+
+        return successResponse({
+            res,
+            statuscode: 200,
+            data: result
+        });
+    };
 
     /**
      * POST /api/products
@@ -14,7 +39,12 @@ class ProductController {
         const files = req.files as Express.Multer.File[] || [];
         const storeId = req.store!.storeId;
 
-        const product = await ProductService.createProduct(req.body, files, storeId);
+        files.forEach(file => validatePhotoSize(file, 5));
+        const compressedImages = await Promise.all(
+            files.map(file => compressAndEncodePhoto(file))
+        );
+
+        const product = await ProductService.createProduct(req.body, compressedImages, storeId);
 
         return successResponse({
             res,
@@ -55,9 +85,14 @@ class ProductController {
         // Verify the authenticated store owns this product
         await this.verifyProductOwnership(productId!, storeId);
 
+        files.forEach(file => validatePhotoSize(file, 5));
+        const compressedImages = await Promise.all(
+            files.map(file => compressAndEncodePhoto(file))
+        );
+
         const updatedProduct = await ProductService.updateProductAttachment(
             productId!,
-            files,
+            compressedImages,
             storeId,
             req.body
         );

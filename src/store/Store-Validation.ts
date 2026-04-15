@@ -40,6 +40,10 @@ export const registerStoreSchema = {
             path: ["confirmPassword"]
         }
     ),
+    file: z.object({
+        fieldname: z.literal('profilePhoto'),
+        mimetype: z.enum(['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp']),
+    })
 };
 
 // Login store schema

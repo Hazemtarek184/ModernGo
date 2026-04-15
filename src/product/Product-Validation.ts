@@ -58,3 +58,15 @@ export const restoreAccount = {
 }
 
 export const hardDeleteAccount = restoreAccount;
+
+export const getAllProductsSchema = {
+    query: z.strictObject({
+        page: z.coerce.number().min(1).default(1),
+        limit: z.coerce.number().min(1).max(100).default(10),
+        search: z.string().optional(),
+        minPrice: z.coerce.number().min(0).optional(),
+        maxPrice: z.coerce.number().min(0).optional(),
+        sortBy: z.enum(['createdAt', 'mainPrice', 'salePrice', 'name']).default('createdAt'),
+        sortOrder: z.enum(['asc', 'desc']).default('desc'),
+    })
+};

@@ -11,6 +11,7 @@ interface RegisterCustomerDto {
     email: string;
     phone: string;
     password: string;
+    profilePhoto: string;
     address?: {
         street?: string | undefined;
         city?: string | undefined;
@@ -72,6 +73,7 @@ class CustomerService {
                 email: dto.email.toLowerCase().trim(),
                 phone: dto.phone.trim(),
                 password: dto.password,
+                profilePhoto: dto.profilePhoto,
                 address: dto.address,
             }]
         });
@@ -80,15 +82,15 @@ class CustomerService {
             throw new BadRequestException("Failed to create customer account");
         }
 
-        // Return customer without password
+        // Return customer without password and profilePhoto (both are select: false fields)
         const customerObject = customer.toObject();
-        const { password, ...customerWithoutPassword } = customerObject;
+        const { password, profilePhoto, ...customerWithoutSensitive } = customerObject;
 
         // Generate JWT token
         const token = generateToken(customer._id!, customer.email, 'customer');
 
         return {
-            customer: customerWithoutPassword,
+            customer: customerWithoutSensitive,
             token
         };
     }
@@ -134,7 +136,8 @@ class CustomerService {
         }
 
         const customer = await this.customerRepository.findOne({
-            filter: { _id: new Types.ObjectId(customerId) }
+            filter: { _id: new Types.ObjectId(customerId) },
+            select: '+profilePhoto'
         });
 
         if (!customer) {
@@ -217,6 +220,41 @@ class CustomerService {
         await customer.save();
 
         return { message: "Password updated successfully" };
+    }
+
+    // ─── AI Verification Photo Methods ───────────────────────────
+
+    /**
+     * Process a verification photo submitted by an authenticated customer.
+     * This method is called after login when the customer submits a live photo
+     * for AI-based identity verification.
+     *
+     * TODO: Implement socket connection to AI service
+     * Flow: Customer submits photo → convert to buffer → send via socket → AI processes
+     */
+    async processVerificationPhoto(customerId: string, photoDataUri: string): Promise<{ status: string }> {
+        // Validate customer ID format
+        if (!Types.ObjectId.isValid(customerId)) {
+            throw new BadRequestException("Invalid customerId format");
+        }
+
+        // Verify customer exists
+        const customer = await this.customerRepository.findOne({
+            filter: { _id: new Types.ObjectId(customerId) }
+        });
+
+        if (!customer) {
+            throw new NotFoundException("Customer not found");
+        }
+
+        // TODO: Send photoDataUri to AI verification service via socket
+        // Example future implementation:
+        // const socket = getAISocket();
+        // socket.emit('verify:photo', { customerId, photoDataUri });
+        // const result = await waitForSocketResponse(socket, 'verify:result');
+        // return result;
+
+        return { status: "verification_pending" };
     }
 }
 

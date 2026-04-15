@@ -2,9 +2,6 @@ import { Types } from "mongoose";
 import { ProductModel } from "./Product-Module";
 import { ProductRepository } from "../DB/repository";
 import { BadRequestException, NotFoundException } from "../utils/error.response";
-import { v4 as uuid } from 'uuid';
-import { uploadFiles } from "../utils/s3.config";
-import { StorageEnum } from "../utils/cloud.multer";
 import slugify from "slugify";
 
 interface CreateProductDto {
@@ -25,10 +22,66 @@ interface UpdateProductDto {
     slug?: string | undefined;
 }
 
+interface GetAllProductsQuery {
+    page: number;
+    limit: number;
+    search?: string | undefined;
+    minPrice?: number | undefined;
+    maxPrice?: number | undefined;
+    sortBy: 'createdAt' | 'mainPrice' | 'salePrice' | 'name';
+    sortOrder: 'asc' | 'desc';
+}
+
 class ProductService {
     private productRepository = new ProductRepository(ProductModel);
 
     constructor() { }
+
+    /**
+     * Get all products with pagination and filters
+     */
+    async getAllProducts(query: GetAllProductsQuery) {
+        const { page, limit, search, minPrice, maxPrice, sortBy, sortOrder } = query;
+        const skip = (page - 1) * limit;
+
+        // Build filter object
+        const filter: any = {
+            freezedAt: { $exists: false } // Only non-frozen products
+        };
+
+        if (search) {
+            filter.$or = [
+                { name: { $regex: search, $options: 'i' } },
+                { description: { $regex: search, $options: 'i' } }
+            ];
+        }
+
+        if (minPrice !== undefined || maxPrice !== undefined) {
+            filter.salePrice = {};
+            if (minPrice !== undefined) filter.salePrice.$gte = minPrice;
+            if (maxPrice !== undefined) filter.salePrice.$lte = maxPrice;
+        }
+
+        // Get total count for pagination metadata
+        const total = await ProductModel.countDocuments(filter);
+
+        // Execute query
+        const products = await ProductModel.find(filter)
+            .sort({ [sortBy]: sortOrder === 'desc' ? -1 : 1 })
+            .skip(skip)
+            .limit(limit)
+            .populate('createdBy', 'name email profilePhoto');
+
+        return {
+            products,
+            pagination: {
+                total,
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit)
+            }
+        };
+    }
 
     /**
      * Check if a store owns a specific product
@@ -52,19 +105,9 @@ class ProductService {
      */
     async createProduct(
         dto: CreateProductDto,
-        files: Express.Multer.File[],
+        images: string[],
         storeId: string
     ) {
-        const assistFolderId = uuid();
-
-        // Upload files to S3
-        const images = await uploadFiles({
-            storageApproach: StorageEnum.memory,
-            files,
-            path: `products/${assistFolderId}`,
-            useLarge: true
-        });
-
         // Calculate sale price
         const salePrice = dto.mainPrice - (dto.mainPrice * ((dto.discountPercent ?? 0) / 100));
 
@@ -75,7 +118,6 @@ class ProductService {
         const [product] = await this.productRepository.create({
             data: [{
                 ...dto,
-                assistFolderId,
                 images,
                 salePrice,
                 slug,
@@ -146,7 +188,7 @@ class ProductService {
      */
     async updateProductAttachment(
         productId: string,
-        files: Express.Multer.File[],
+        images: string[],
         storeId: string,
         updateData?: any
     ) {
@@ -162,14 +204,7 @@ class ProductService {
             throw new NotFoundException("Failed to find matching product instance");
         }
 
-        // Upload new files if provided
-        let attachment: string[] = [];
-        if (files.length > 0) {
-            attachment = await uploadFiles({
-                files,
-                path: `products/${product.assistFolderId}`,
-            });
-        }
+        const attachment: string[] = images;
 
         // Update product
         const updates = {

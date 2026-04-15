@@ -97,3 +97,14 @@ export const updatePasswordSchema = {
         }
     )
 };
+
+// Verify photo schema (for AI verification after login)
+export const verifyPhotoSchema = {
+    params: z.object({
+        customerId: generalFields.id,
+    }),
+    file: z.object({
+        fieldname: z.literal('verificationPhoto'),
+        mimetype: z.enum(['image/jpeg', 'image/jpg', 'image/png', 'image/gif']),
+    })
+};

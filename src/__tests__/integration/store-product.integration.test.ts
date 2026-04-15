@@ -11,6 +11,25 @@ import { globalErrorHandling } from '../../utils/error.response';
 describe('StoreProduct API Integration Tests', () => {
     let app: Express;
 
+    const sendRegistrationRequest = (storeData: any) => {
+        const dummyImageBuffer = Buffer.from(
+            'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+            'base64'
+        );
+        const req = request(app).post('/api/stores/register');
+        req.field('name', storeData.name || '');
+        if (storeData.email) req.field('email', storeData.email);
+        if (storeData.password) req.field('password', storeData.password);
+        if (storeData.confirmPassword) req.field('confirmPassword', storeData.confirmPassword);
+        if (storeData.address) req.field('address', storeData.address);
+        if (storeData.phone) req.field('phone', storeData.phone);
+        if (storeData.location) req.field('location', JSON.stringify(storeData.location));
+        if (storeData.categories) req.field('categories', JSON.stringify(storeData.categories));
+        
+        req.attach('profilePhoto', dummyImageBuffer, { filename: 'test.png', contentType: 'image/png' });
+        return req;
+    };
+
     // Helper to register a store and get auth token
     const registerStoreAndGetToken = async (overrides: any = {}) => {
         const storeData = factories.storeData({
@@ -20,9 +39,7 @@ describe('StoreProduct API Integration Tests', () => {
             ...overrides
         });
 
-        const response = await request(app)
-            .post('/api/stores/register')
-            .send(storeData);
+        const response = await sendRegistrationRequest(storeData);
 
         return {
             token: response.body.data?.token as string,

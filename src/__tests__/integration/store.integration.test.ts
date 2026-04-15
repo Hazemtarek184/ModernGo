@@ -10,6 +10,25 @@ import { globalErrorHandling } from '../../utils/error.response';
 describe('Store API Integration Tests', () => {
     let app: Express;
 
+    const sendRegistrationRequest = (storeData: any) => {
+        const dummyImageBuffer = Buffer.from(
+            'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+            'base64'
+        );
+        const req = request(app).post('/api/stores/register');
+        req.field('name', storeData.name || '');
+        if (storeData.email) req.field('email', storeData.email);
+        if (storeData.password) req.field('password', storeData.password);
+        if (storeData.confirmPassword) req.field('confirmPassword', storeData.confirmPassword);
+        if (storeData.address) req.field('address', storeData.address);
+        if (storeData.phone) req.field('phone', storeData.phone);
+        if (storeData.location) req.field('location', JSON.stringify(storeData.location));
+        if (storeData.categories) req.field('categories', JSON.stringify(storeData.categories));
+        
+        req.attach('profilePhoto', dummyImageBuffer, { filename: 'test.png', contentType: 'image/png' });
+        return req;
+    };
+
     // Helper to register a store and get auth token
     const registerStoreAndGetToken = async (overrides: any = {}) => {
         const storeData = factories.storeData({
@@ -19,9 +38,7 @@ describe('Store API Integration Tests', () => {
             ...overrides
         });
 
-        const response = await request(app)
-            .post('/api/stores/register')
-            .send(storeData);
+        const response = await sendRegistrationRequest(storeData);
 
         return {
             token: response.body.data?.token as string,
@@ -60,9 +77,7 @@ describe('Store API Integration Tests', () => {
                 confirmPassword: 'TestPass123',
             });
 
-            const response = await request(app)
-                .post('/api/stores/register')
-                .send(storeData);
+            const response = await sendRegistrationRequest(storeData);
 
             expect(response.status).toBe(201);
             expect(response.body.data).toHaveProperty('store');
@@ -79,18 +94,16 @@ describe('Store API Integration Tests', () => {
                 confirmPassword: 'TestPass123',
             });
 
-            await request(app).post('/api/stores/register').send(storeData);
+            await sendRegistrationRequest(storeData);
 
-            const response = await request(app)
-                .post('/api/stores/register')
-                .send({
-                    ...factories.storeData({
-                        email: 'dup@test.com',
-                        password: 'TestPass123',
-                        confirmPassword: 'TestPass123',
-                    }),
-                    name: 'Another Store'
-                });
+            const response = await sendRegistrationRequest({
+                ...factories.storeData({
+                    email: 'dup@test.com',
+                    password: 'TestPass123',
+                    confirmPassword: 'TestPass123',
+                }),
+                name: 'Another Store'
+            });
 
             expect(response.status).toBe(400);
         });
@@ -102,9 +115,7 @@ describe('Store API Integration Tests', () => {
                 confirmPassword: 'DifferentPass123',
             });
 
-            const response = await request(app)
-                .post('/api/stores/register')
-                .send(storeData);
+            const response = await sendRegistrationRequest(storeData);
 
             expect(response.status).toBe(400);
         });
@@ -113,13 +124,11 @@ describe('Store API Integration Tests', () => {
     describe('POST /api/stores/login', () => {
         test('should login with valid credentials', async () => {
             // Register first
-            await request(app)
-                .post('/api/stores/register')
-                .send(factories.storeData({
-                    email: 'login@test.com',
-                    password: 'TestPass123',
-                    confirmPassword: 'TestPass123',
-                }));
+            await sendRegistrationRequest(factories.storeData({
+                email: 'login@test.com',
+                password: 'TestPass123',
+                confirmPassword: 'TestPass123',
+            }));
 
             // Login
             const response = await request(app)

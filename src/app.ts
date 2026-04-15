@@ -2,7 +2,6 @@ import express from 'express';
 import "dotenv/config.js";
 import cors from 'cors';
 import bodyParser from 'body-parser';
-import connectDB from './DB/Connection';
 import storesRouter from './store/Store-Router';
 import { globalErrorHandling } from './utils/error.response';
 import type { Request, Response } from "express";
@@ -11,10 +10,6 @@ import storeProductsRouter from './store-product/StoreProduct-Router';
 import customersRouter from './customer/Customer-Router';
 
 const app = express();
-const PORT = process.env.PORT || 3000;
-
-// Connect Database
-connectDB();
 
 // CORS Configuration for Mobile/React Native Apps
 const corsOptions = {
@@ -66,13 +61,6 @@ app.use((req: Request, res: Response) => {
 
 // Global error handling middleware
 app.use(globalErrorHandling);
-
-// Only start server if not in Vercel (Vercel handles this)
-if (process.env.VERCEL !== '1') {
-    app.listen(PORT, () => {
-        console.log(`Server is running on port ${PORT} 🚀`);
-    });
-}
 
 // Export for Vercel
 export default app;

@@ -69,6 +69,11 @@ class StoreProductService {
                         path: "productId",
                         model: "Product",
                     },
+                    {
+                        path: "storeId",
+                        model: "Store",
+                        select: "name email profilePhoto address phone location categories"
+                    }
                 ],
             },
         });
@@ -93,7 +98,12 @@ class StoreProductService {
                     {
                         path: "storeId",
                         model: "Store",
+                        select: "name email profilePhoto address phone location categories"
                     },
+                    {
+                        path: "productId",
+                        model: "Product"
+                    }
                 ],
             },
         });
@@ -183,6 +193,9 @@ class StoreProductService {
             {
                 $project: {
                     password: 0,
+                    __v: 0,
+                    createdAt: 0,
+                    updatedAt: 0,
                 },
             },
             // Stage 3: Join with StoreProduct collection

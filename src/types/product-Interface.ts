@@ -13,7 +13,6 @@ export interface IProduct {
     mainPrice: number;
     discountPercent: number;
     salePrice: number;
-    assistFolderId: string;
 
     stock: number;
     soldItems: number;
