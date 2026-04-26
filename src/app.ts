@@ -8,6 +8,7 @@ import type { Request, Response } from "express";
 import productsRouter from './product/Product-Router';
 import storeProductsRouter from './store-product/StoreProduct-Router';
 import customersRouter from './customer/Customer-Router';
+import healthProfileRouter from './health-profile/HealthProfile-Router';
 
 const app = express();
 
@@ -15,7 +16,7 @@ const app = express();
 const corsOptions = {
     origin: process.env.NODE_ENV === 'production'
         ? [
-            process.env.FRONTEND_URL || 'https://your-app.com',
+            process.env.FRONTEND_URL || 'https://modern-go-blue.vercel.app',
             'exp://',  // Expo Go
             /^exp:\/\/.*$/,  // Expo development
             /^http:\/\/.*$/,  // Local development
@@ -47,7 +48,9 @@ app.get('/health', (req: Request, res: Response) => {
 app.use("/api/stores", storesRouter);
 app.use("/api/products", productsRouter);
 app.use("/api/customers", customersRouter);
+app.use("/api/health-profiles", healthProfileRouter);
 app.use("/api", storeProductsRouter); // Handles nested routes like /api/stores/:id/products
+
 
 // Catch-all for invalid routes (must be after all valid routes)
 app.use((req: Request, res: Response) => {
