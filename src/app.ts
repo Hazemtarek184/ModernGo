@@ -16,7 +16,7 @@ const app = express();
 const corsOptions = {
     origin: process.env.NODE_ENV === 'production'
         ? [
-            process.env.FRONTEND_URL || 'https://your-app.com',
+            process.env.FRONTEND_URL || 'https://modern-go-blue.vercel.app',
             'exp://',  // Expo Go
             /^exp:\/\/.*$/,  // Expo development
             /^http:\/\/.*$/,  // Local development
