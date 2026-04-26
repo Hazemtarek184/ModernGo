@@ -8,7 +8,7 @@ class HealthProfileService {
     private healthProfileRepository = new HealthProfileRepository(
         HealthProfileModel as Model<HydratedDocument<IHealthProfile>>
     );
-    async create(customerId: string, data: any) {
+    async create(customerId: string, data: Partial<IHealthProfile>) {
 
         const existing = await this.healthProfileRepository.findByCustomerId(customerId);
 
@@ -38,7 +38,7 @@ class HealthProfileService {
         return profile;
     }
 
-    async update(customerId: string, data: any) {
+    async update(customerId: string, data: Partial<IHealthProfile>) {
 
         const profile = await this.healthProfileRepository.updateByCustomerId(
             customerId,

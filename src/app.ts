@@ -8,7 +8,7 @@ import type { Request, Response } from "express";
 import productsRouter from './product/Product-Router';
 import storeProductsRouter from './store-product/StoreProduct-Router';
 import customersRouter from './customer/Customer-Router';
-import healthProfileRouter from './helthPro/HealthProfile-Router';
+import healthProfileRouter from './health-profile/HealthProfile-Router';
 
 const app = express();
 
