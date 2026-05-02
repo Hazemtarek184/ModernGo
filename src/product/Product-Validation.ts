@@ -54,7 +54,20 @@ export const restoreAccount = {
         }, {
             error: "Invalid objectId format",
             path: ["userId"]
-        })
+        }),
+    ingredients: z.array(z.string()).optional(),
+
+    nutrients: z.object({
+        calories: z.coerce.number().optional(),
+        sugar_g: z.coerce.number().optional(),
+        sodium_mg: z.coerce.number().optional(),
+        fat_g: z.coerce.number().optional(),
+    }).optional(),
+
+    additives: z.array(z.string()).optional(),
+    allergens: z.array(z.string()).optional(),
+    drugInteractions: z.array(z.string()).optional(),
+    warnings: z.array(z.string()).optional(),
 }
 
 export const hardDeleteAccount = restoreAccount;

@@ -1,6 +1,4 @@
-
 import { Types } from "mongoose";
-
 
 export interface IProduct {
     _id?: Types.ObjectId;
@@ -10,6 +8,23 @@ export interface IProduct {
     description: string;
     images: string[];
 
+    ingredients?: string[];
+
+    nutrients?: {
+        calories?: number;
+        sugar_g?: number;
+        sodium_mg?: number;
+        fat_g?: number;
+    };
+
+    additives?: string[];
+
+    allergens?: string[];
+
+    drugInteractions?: string[];
+
+    warnings?: string[];
+
     mainPrice: number;
     discountPercent: number;
     salePrice: number;
@@ -17,23 +32,14 @@ export interface IProduct {
     stock: number;
     soldItems: number;
 
-
-
     createdBy: Types.ObjectId;
     updatedBy?: Types.ObjectId;
-
 
     createdAt?: Date;
     updatedAt?: Date;
     restoredAt?: Date;
 
     freezedAt?: Date;
-    freezedBy?: Types.ObjectId
-    restoredBy?: Types.ObjectId
-
-
-
-
+    freezedBy?: Types.ObjectId;
+    restoredBy?: Types.ObjectId;
 }
-
-

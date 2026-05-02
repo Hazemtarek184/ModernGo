@@ -1,5 +1,5 @@
 import { HydratedDocument, Model, model, models, Schema } from "mongoose";
-import { IProduct } from "../types/Product-Interface";
+import { IProduct } from "../types/product-Interface";
 
 const productSchema = new Schema<IProduct>(
     {
@@ -9,6 +9,21 @@ const productSchema = new Schema<IProduct>(
         description: { type: String, minlength: 2, maxlength: 5000, required: true },
 
         images: [{ type: String }],
+
+        ingredients: [{ type: String }],
+
+        nutrients: {
+            calories: { type: Number },
+            sugar_g: { type: Number },
+            sodium_mg: { type: Number },
+            fat_g: { type: Number }
+        },
+
+        additives: [{ type: String }],
+        allergens: [{ type: String }],
+        drugInteractions: [{ type: String }],
+        warnings: [{ type: String }],
+
         discountPercent: { type: Number, default: 0, min: 0, max: 100 },
 
         mainPrice: { type: Number, required: true, min: 0 },
@@ -29,9 +44,12 @@ const productSchema = new Schema<IProduct>(
     {
         timestamps: true,
         toJSON: { virtuals: true },
-        toObject: { virtuals: false }
+        toObject: { virtuals: false },
     }
 );
 
-export const ProductModel = (models.Product as Model<HydratedDocument<IProduct>>) || model<IProduct>("Product", productSchema);
+export const ProductModel =
+    (models.Product as Model<HydratedDocument<IProduct>>) ||
+    model<IProduct>("Product", productSchema);
+
 export type HProductDocument = HydratedDocument<IProduct>;

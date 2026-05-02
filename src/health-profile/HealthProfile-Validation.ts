@@ -1,51 +1,44 @@
 import { z } from "zod";
 
+const allergySchema = z.object({
+    allergen: z.string(),
+    severity: z.string().optional()
+});
+
+const conditionSchema = z.object({
+    name: z.string(),
+    icd10: z.string().optional(),
+    severity: z.string().optional()
+});
+
+const medicationSchema = z.object({
+    name: z.string(),
+    doseMg: z.number().optional(),
+    frequencyPerDay: z.number().optional()
+});
+
 export const createHealthProfileSchema = {
     body: z.object({
-        weight: z.number()
-            .positive({ message: "Weight must be a positive number" })
-            .optional(),
+        age: z.number().optional(),
+        sex: z.string().optional(),
 
-        allergies: z.array(
-            z.string().min(1, { message: "Allergy item cannot be empty" })
-        ).optional(),
+        weightKg: z.number().optional(),
+        heightCm: z.number().optional(),
 
-        medications: z.array(
-            z.string().min(1, { message: "Medication item cannot be empty" })
-        ).optional(),
+        pregnant: z.boolean().optional(),
 
-        conditions: z.array(
-            z.string().min(1, { message: "Condition item cannot be empty" })
-        ).optional(),
+        allergies: z.array(allergySchema).optional(),
+        conditions: z.array(conditionSchema).optional(),
+        medications: z.array(medicationSchema).optional(),
 
-        dietaryRestrictions: z.string()
-            .min(2, { message: "Dietary restrictions must be at least 2 characters" })
-            .max(255, { message: "Dietary restrictions must not exceed 255 characters" })
-            .optional()
+        dietaryRestrictions: z.array(z.string()).optional(),
+
+        riskFactors: z.object({
+            hypertension: z.boolean().optional(),
+            kidneyDisease: z.boolean().optional(),
+            liverDisease: z.boolean().optional()
+        }).optional()
     })
 };
 
-export const updateHealthProfileSchema = {
-    body: z.object({
-        weight: z.number()
-            .positive({ message: "Weight must be a positive number" })
-            .optional(),
-
-        allergies: z.array(
-            z.string().min(1, { message: "Allergy item cannot be empty" })
-        ).optional(),
-
-        medications: z.array(
-            z.string().min(1, { message: "Medication item cannot be empty" })
-        ).optional(),
-
-        conditions: z.array(
-            z.string().min(1, { message: "Condition item cannot be empty" })
-        ).optional(),
-
-        dietaryRestrictions: z.string()
-            .min(2, { message: "Dietary restrictions must be at least 2 characters" })
-            .max(255, { message: "Dietary restrictions must not exceed 255 characters" })
-            .optional()
-    })
-};
+export const updateHealthProfileSchema = createHealthProfileSchema;
