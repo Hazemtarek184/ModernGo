@@ -10,28 +10,46 @@ const healthProfileSchema = new Schema<IHealthProfile>(
             unique: true
         },
 
-        weight: {
-            type: Number
-        },
+        age: Number,
+        sex: String,
 
-        allergies: {
-            type: [String],
-            default: []
-        },
+        weightKg: Number,
+        heightCm: Number,
 
-        medications: {
-            type: [String],
-            default: []
-        },
+        pregnant: Boolean,
 
-        conditions: {
-            type: [String],
-            default: []
-        },
+        allergies: [
+            {
+                allergen: String,
+                severity: String
+            }
+        ],
+
+        conditions: [
+            {
+                name: String,
+                icd10: String,
+                severity: String
+            }
+        ],
+
+        medications: [
+            {
+                name: String,
+                doseMg: Number,
+                frequencyPerDay: Number
+            }
+        ],
 
         dietaryRestrictions: {
-            type: String,
-            trim: true
+            type: [String],
+            default: []
+        },
+
+        riskFactors: {
+            hypertension: Boolean,
+            kidneyDisease: Boolean,
+            liverDisease: Boolean
         },
 
         lastUpdated: {
@@ -45,4 +63,5 @@ const healthProfileSchema = new Schema<IHealthProfile>(
 );
 
 export const HealthProfileModel =
-    models.HealthProfile || model<IHealthProfile>("HealthProfile", healthProfileSchema);
+    models.HealthProfile ||
+    model<IHealthProfile>("HealthProfile", healthProfileSchema);

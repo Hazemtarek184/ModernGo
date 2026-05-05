@@ -9,4 +9,20 @@ export interface IStoreProduct {
     isAvailable: boolean;
     createdAt?: Date;
     updatedAt?: Date;
+    ingredients?: string[];
+
+    nutrients?: {
+        calories?: number;
+        sugar_g?: number;
+        sodium_mg?: number;
+        fat_g?: number;
+    };
+
+    additives?: string[];
+
+    allergens?: string[];
+
+    drugInteractions?: string[];
+
+    warnings?: string[];
 }
