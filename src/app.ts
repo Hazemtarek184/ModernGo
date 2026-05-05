@@ -14,14 +14,7 @@ const app = express();
 
 // CORS Configuration for Mobile/React Native Apps
 const corsOptions = {
-    origin: process.env.NODE_ENV === 'production'
-        ? [
-            process.env.FRONTEND_URL || 'https://modern-go-blue.vercel.app',
-            'exp://',  // Expo Go
-            /^exp:\/\/.*$/,  // Expo development
-            /^http:\/\/.*$/,  // Local development
-        ]
-        : true, // Allow all origins in development
+    origin: true, // Allow all origins
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
