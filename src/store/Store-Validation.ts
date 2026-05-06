@@ -43,7 +43,7 @@ export const registerStoreSchema = {
     file: z.object({
         fieldname: z.literal('profilePhoto'),
         mimetype: z.enum(['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp']),
-    })
+    }).optional()
 };
 
 // Login store schema
