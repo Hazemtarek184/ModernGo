@@ -2,75 +2,306 @@ import { Server as HttpServer } from "http";
 import { Server, Socket } from "socket.io";
 import { authenticateAiSocket, authenticateMobileSocket } from "./Socket-Auth";
 import CartItemService from "../cart/CartItem-Service";
-import type { ICartActionPayload } from "../types/CartItem-Interface";
 
-// ─── Zod-style runtime validation (light, no extra dep) ─────────────
+let aiNamespace: ReturnType<Server["of"]> | null = null;
 
-function isValidCartAction(data: unknown): data is ICartActionPayload {
-    if (typeof data !== "object" || data === null) return false;
-    const obj = data as Record<string, unknown>;
-    return (
-        typeof obj.customerId === "string" &&
-        typeof obj.storeProductId === "string" &&
-        (obj.action === "pick" || obj.action === "release")
-    );
-}
+type PersonImagesPayload = {
+    personKey: string;
+    images: string[];
+};
 
-// ─── Initialiser ─────────────────────────────────────────────────────
+type CartEventPayload = {
+    personKey?: string;
+    storeProductId: string;
+    action: "pick" | "release";
+};
 
-/**
- * Create and attach a Socket.IO server to the given HTTP server.
- * Returns the io instance for external use if needed.
- */
+type StockSnapshotItem = {
+    storeProductId: string;
+};
+
+type StockSnapshotPayload = {
+    items: StockSnapshotItem[];
+};
+
+type PersonLeftPayload = {
+    personKey: string;
+};
+
+// Backend -> AI
+// Event type 2:
+// Send customer/person images to AI
+// Message format:
+// 2{"personKey":"...","images":["base64..."]}
+export const sendPersonImagesToAI = (payload: PersonImagesPayload): void => {
+    if (!aiNamespace) {
+        console.warn("[Socket.IO] AI namespace is not initialized yet");
+        return;
+    }
+
+    const message = `2{${JSON.stringify(payload)}}`;
+
+    aiNamespace.emit("backend:person_images", message);
+};
+
+// Helper:
+// Parse messages like:
+// 3{"personKey":"...","storeProductId":"...","action":"pick"}
+// 3{"storeProductId":"...","action":"release"}
+// 4{"items":[{"storeProductId":"..."}]}
+// 5{"personKey":"..."}
+const parseTypedMessage = <T>(data: unknown, expectedEventType: string): T => {
+    if (typeof data !== "string") {
+        return data as T;
+    }
+
+    if (!data.startsWith(expectedEventType)) {
+        throw new Error(`Invalid event type. Expected ${expectedEventType}`);
+    }
+
+    const jsonPart = data.slice(expectedEventType.length);
+
+    return JSON.parse(jsonPart) as T;
+};
+
 export function initSocketServer(httpServer: HttpServer): Server {
     const io = new Server(httpServer, {
         cors: {
-            origin: process.env.NODE_ENV === "production"
-                ? [process.env.FRONTEND_URL || "https://your-app.com"]
-                : "*",
+            origin:
+                process.env.NODE_ENV === "production"
+                    ? [process.env.FRONTEND_URL || "https://your-app.com"]
+                    : "*",
             methods: ["GET", "POST"],
             credentials: true,
         },
-        // Ping every 25 s, timeout after 20 s — tuned for mobile networks
+
         pingInterval: 25_000,
         pingTimeout: 20_000,
     });
 
-    // ── /ai namespace ────────────────────────────────────────────────
+    // ─────────────────────────────────────────────
+    // AI namespace
+    // ─────────────────────────────────────────────
 
-    const aiNamespace = io.of("/ai");
+    aiNamespace = io.of("/ai");
     aiNamespace.use(authenticateAiSocket);
 
     aiNamespace.on("connection", (socket: Socket) => {
         console.log(`[AI] Connected: ${socket.id}`);
 
-        socket.on("cart:action", async (data: unknown, ack?: (res: unknown) => void) => {
+        // ─────────────────────────────────────────
+        // Event type 1: alive ping
+        //
+        // AI sends:
+        // 1{0}
+        //
+        // Backend responds:
+        // 1{1}
+        // ─────────────────────────────────────────
+
+        socket.on("ai:alive", (data, ack) => {
+            console.log("[AI] alive:", data);
+
+            const response = "1{1}";
+
+            if (typeof ack === "function") {
+                ack(response);
+                return;
+            }
+
+            socket.emit("backend:alive_ack", response);
+        });
+
+        // ─────────────────────────────────────────
+        // Event type 3: cart event
+        //
+        // PICK:
+        // AI sends:
+        // 3{"personKey":"uuid","storeProductId":"...","action":"pick"}
+        //
+        // RELEASE:
+        // AI sends:
+        // 3{"storeProductId":"...","action":"release"}
+        //
+        // pick:
+        // - needs personKey
+        // - real customer -> real cart
+        // - unknown person -> phantom cart
+        //
+        // release:
+        // - does not need personKey
+        // - removes product from real carts and phantom carts
+        // ─────────────────────────────────────────
+
+        socket.on("ai:cart_event", async (data) => {
             try {
-                // 1. Validate payload
-                if (!isValidCartAction(data)) {
-                    const err = { success: false, error: "Invalid payload: requires customerId, storeProductId, action (pick|release)" };
-                    if (typeof ack === "function") ack(err);
+                console.log("[AI] cart event raw:", data);
+
+                const parsedPayload = parseTypedMessage<CartEventPayload>(data, "3");
+
+                if (parsedPayload.action === "pick" && !parsedPayload.personKey) {
+                    throw new Error("personKey is required for pick action");
+                }
+
+                const cartEventPayload =
+                    parsedPayload.action === "pick"
+                        ? {
+                            personKey: parsedPayload.personKey as string,
+                            storeProductId: parsedPayload.storeProductId,
+                            action: parsedPayload.action,
+                        }
+                        : {
+                            storeProductId: parsedPayload.storeProductId,
+                            action: parsedPayload.action,
+                        };
+
+                const result = await CartItemService.handleAICartEvent(cartEventPayload);
+
+                // result = null means:
+                // - unknown person pick -> saved in phantom cart
+                // - release -> product removed globally
+                if (!result) {
+                    const status =
+                        parsedPayload.action === "release"
+                            ? "product_released_globally"
+                            : "phantom_cart_saved";
+
+                    socket.emit("backend:cart_ack", {
+                        status,
+                        personKey: parsedPayload.personKey,
+                        storeProductId: parsedPayload.storeProductId,
+                    });
+
+                    console.log("[AI] cart event handled without mobile update:", {
+                        status,
+                        personKey: parsedPayload.personKey,
+                        storeProductId: parsedPayload.storeProductId,
+                        action: parsedPayload.action,
+                    });
+
                     return;
                 }
 
-                // 2. Process the action (DB write)
-                const result = await CartItemService.handleCartAction(data);
+                // real customer cart updated -> notify mobile
+                io.of("/mobile")
+                    .to(`customer:${result.customerId}`)
+                    .emit("cart:updated", {
+                        customerId: result.customerId,
+                        ...result.update,
+                    });
 
-                // 3. Broadcast to the customer's mobile room
-                const room = `customer:${data.customerId}`;
-                io.of("/mobile").to(room).emit("cart:updated", result);
+                socket.emit("backend:cart_ack", {
+                    status: "customer_cart_updated",
+                    customerId: result.customerId,
+                    storeProductId: parsedPayload.storeProductId,
+                });
 
-                // 4. Acknowledge back to AI
-                if (typeof ack === "function") {
-                    ack({ success: true, item: result.item });
-                }
-
-                console.log(`[AI] cart:action ${data.action} → customer:${data.customerId} / product:${data.storeProductId}`);
+                console.log("[AI] cart event handled:", {
+                    customerId: result.customerId,
+                    storeProductId: parsedPayload.storeProductId,
+                    action: parsedPayload.action,
+                });
             } catch (error: any) {
-                console.error("[AI] cart:action error:", error.message);
-                if (typeof ack === "function") {
-                    ack({ success: false, error: error.message });
+                console.error("ai:cart_event error:", error.message);
+
+                socket.emit("socket:error", {
+                    message: "Failed to handle cart event",
+                    error: error.message,
+                });
+            }
+        });
+
+        // ─────────────────────────────────────────
+        // Event type 4: stock snapshot
+        //
+        // AI sends:
+        // 4{"items":[{"storeProductId":"..."}]}
+        //
+        // Meaning:
+        // AI sees these products on the shelf.
+        //
+        // Backend:
+        // remove products from real carts and phantom carts
+        // ─────────────────────────────────────────
+
+        socket.on("ai:stock_snapshot", async (data) => {
+            try {
+                console.log("[AI] stock snapshot raw:", data);
+
+                const parsedPayload = parseTypedMessage<StockSnapshotPayload>(
+                    data,
+                    "4",
+                );
+
+                const result = await CartItemService.handleAIStockSnapshot(
+                    parsedPayload,
+                );
+
+                socket.emit("backend:stock_ack", {
+                    status: "stock_snapshot_handled",
+                    ...result,
+                });
+
+                console.log("[AI] stock snapshot handled:", result);
+            } catch (error: any) {
+                console.error("ai:stock_snapshot error:", error.message);
+
+                socket.emit("socket:error", {
+                    message: "Failed to handle stock snapshot",
+                    error: error.message,
+                });
+            }
+        });
+
+        // ─────────────────────────────────────────
+        // Event type 5: person left / checkout
+        //
+        // AI sends:
+        // 5{"personKey":"uuid"}
+        //
+        // Backend:
+        // - real customer -> notify mobile checkout
+        // - phantom person -> remove phantom cart
+        //
+        // Important:
+        // We do NOT send cart back to AI.
+        // ─────────────────────────────────────────
+
+        socket.on("ai:person_left", async (data) => {
+            try {
+                console.log("[AI] person left raw:", data);
+
+                const parsedPayload = parseTypedMessage<PersonLeftPayload>(
+                    data,
+                    "5",
+                );
+
+                const result = await CartItemService.handleAIPersonLeft(
+                    parsedPayload.personKey,
+                );
+
+                if (result.status === "customer_left" && result.customerId) {
+                    io.of("/mobile")
+                        .to(`customer:${result.customerId}`)
+                        .emit("checkout:completed", {
+                            customerId: result.customerId,
+                        });
                 }
+
+                socket.emit("backend:person_left_ack", {
+                    status: result.status,
+                    personKey: parsedPayload.personKey,
+                    customerId: result.customerId,
+                });
+
+                console.log("[AI] person left handled:", result);
+            } catch (error: any) {
+                console.error("ai:person_left error:", error.message);
+
+                socket.emit("socket:error", {
+                    message: "Failed to handle person left event",
+                    error: error.message,
+                });
             }
         });
 
@@ -79,7 +310,9 @@ export function initSocketServer(httpServer: HttpServer): Server {
         });
     });
 
-    // ── /mobile namespace ────────────────────────────────────────────
+    // ─────────────────────────────────────────────
+    // Mobile namespace
+    // ─────────────────────────────────────────────
 
     const mobileNamespace = io.of("/mobile");
     mobileNamespace.use(authenticateMobileSocket);
@@ -88,29 +321,37 @@ export function initSocketServer(httpServer: HttpServer): Server {
         const customerId = socket.data.customerId as string;
         const room = `customer:${customerId}`;
 
-        // ── Enforce single device per customer ───────────────────────
-        // Disconnect any existing socket for this customer
         const existingSockets = await mobileNamespace.in(room).fetchSockets();
+
         for (const existing of existingSockets) {
             if (existing.id !== socket.id) {
                 existing.emit("session:replaced", {
                     message: "Another device connected to your account",
                 });
+
                 existing.disconnect(true);
-                console.log(`[Mobile] Kicked previous session: ${existing.id} (customer: ${customerId})`);
+
+                console.log(
+                    `[Mobile] Kicked previous session: ${existing.id} customer:${customerId}`,
+                );
             }
         }
 
-        // Join the customer's room
-        void socket.join(room);
-        console.log(`[Mobile] Connected: ${socket.id} (customer: ${customerId})`);
+        await socket.join(room);
 
-        // Send current cart state immediately on connect
+        console.log(`[Mobile] Connected: ${socket.id} customer:${customerId}`);
+
         try {
             const cart = await CartItemService.getCustomerCart(customerId);
-            socket.emit("cart:current", { cart });
+
+            socket.emit("cart:current", {
+                customerId,
+                cart,
+            });
         } catch (error: any) {
-            socket.emit("error", { message: error.message });
+            socket.emit("socket:error", {
+                message: error.message,
+            });
         }
 
         socket.on("disconnect", (reason) => {
@@ -119,5 +360,6 @@ export function initSocketServer(httpServer: HttpServer): Server {
     });
 
     console.log("[Socket.IO] Server initialised with /ai and /mobile namespaces");
+
     return io;
 }

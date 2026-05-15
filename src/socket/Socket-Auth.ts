@@ -13,7 +13,10 @@ type NextFn = (err?: Error) => void;
  *   io("/ai", { auth: { apiKey: "..." } })
  */
 export const authenticateAiSocket = (socket: Socket, next: NextFn): void => {
-    const apiKey = socket.handshake.auth?.apiKey as string | undefined;
+    const apiKey =
+        socket.handshake.auth?.apiKey ||
+        socket.handshake.query?.apiKey ||
+        socket.handshake.headers?.apikey;
 
     if (!apiKey) {
         return next(new Error("Authentication error: API key is required"));
