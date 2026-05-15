@@ -1,32 +1,52 @@
 import { Request, Response, NextFunction } from "express";
 import { Types } from "mongoose";
 import { CartItemModel } from "./CartItem-Module";
-import { UnauthorizedException } from "../utils/error.response";
+import CartItemService from "./CartItem-Service";
+import { asyncHandler, BadRequestException, UnauthorizedException } from "../utils/error.response";
 
 class CartItemController {
-    async getMyCart(req: Request, res: Response, next: NextFunction): Promise<void> {
-        try {
-            const customerId = req.customer?.customerId;
+    getMyCart = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+        const customerId = req.customer?.customerId;
 
-            if (!customerId) {
-                throw new UnauthorizedException("Customer not authenticated");
-            }
-
-            const cartItems = await CartItemModel.find({
-                customerId: new Types.ObjectId(customerId),
-                isActive: true
-            }).populate("storeProductId");
-
-            res.status(200).json({
-                success: true,
-                message: "Cart fetched successfully",
-                data: cartItems
-            });
-
-        } catch (error) {
-            next(error);
+        if (!customerId) {
+            throw new UnauthorizedException("Customer not authenticated");
         }
-    }
+
+        const cartItems = await CartItemModel.find({
+            customerId: new Types.ObjectId(customerId),
+            isActive: true,
+        }).populate("storeProductId");
+
+        res.status(200).json({
+            success: true,
+            message: "Cart fetched successfully",
+            data: cartItems,
+        });
+    });
+
+    addProductAndCheckHealth = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+        const customerId = req.customer?.customerId || req.body.customerId;
+        const { storeProductId } = req.body;
+
+        if (!customerId) {
+            throw new UnauthorizedException("Customer not authenticated");
+        }
+
+        if (!storeProductId) {
+            throw new BadRequestException("storeProductId is required");
+        }
+
+        const result = await CartItemService.addProductToCartAndCheckHealth(
+            customerId,
+            storeProductId,
+        );
+
+        res.status(200).json({
+            success: true,
+            message: "Product added to cart and health check completed",
+            data: result,
+        });
+    });
 }
 
 export default new CartItemController();
