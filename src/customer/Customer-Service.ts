@@ -1,9 +1,12 @@
+import { sendPersonImagesToAI } from "../socket/Socket-Server";
 import { Types } from "mongoose";
 import { CustomerModel } from "./Customer-Module";
 import { CustomerRepository } from "../DB/repository/Customer-Repository";
 import { BadRequestException, NotFoundException } from "../utils/error.response";
 import bcrypt from "bcrypt";
 import { generateToken } from "../utils/jwt.utils";
+import { HydratedDocument, Model } from "mongoose";
+import { ICustomer } from "../types/Customer-Interface";
 
 interface RegisterCustomerDto {
     firstName: string;
@@ -53,9 +56,9 @@ class CustomerService {
     //     throw new Error("Method not implemented.");
     // }
 
-    private customerRepository = new CustomerRepository(CustomerModel);
-
-    constructor() { }
+    private customerRepository = new CustomerRepository(
+        CustomerModel as Model<HydratedDocument<ICustomer>>,
+    ); constructor() { }
 
 
     async updateProfilePhotoKey(customerId: string, profilePhotoKey: string) {
@@ -131,7 +134,7 @@ class CustomerService {
 
         // Return customer without password and profilePhoto (both are select: false fields)
         const customerObject = customer.toObject();
-        const { password, profilePhoto, ...customerWithoutSensitive } = customerObject;
+        const { password, profilePhotoKey, ...customerWithoutSensitive } = customerObject;
 
         // Generate JWT token
         const token = generateToken(customer._id!, customer.email, 'customer');
@@ -279,29 +282,39 @@ class CustomerService {
      * TODO: Implement socket connection to AI service
      * Flow: Customer submits photo → convert to buffer → send via socket → AI processes
      */
-    async processVerificationPhoto(customerId: string, photoDataUri: string): Promise<{ status: string }> {
-        // Validate customer ID format
+    async processVerificationPhoto(
+        customerId: string,
+        photoDataUri: string,
+    ): Promise<{ status: string; personKey: string }> {
         if (!Types.ObjectId.isValid(customerId)) {
             throw new BadRequestException("Invalid customerId format");
         }
 
-        // Verify customer exists
-        const customer = await this.customerRepository.findOne({
-            filter: { _id: new Types.ObjectId(customerId) }
+        if (!photoDataUri) {
+            throw new BadRequestException("verification photo is required");
+        }
+
+        const customer = await this.customerRepository.findOneAndUpdate({
+            filter: { _id: new Types.ObjectId(customerId) },
+            update: { loginPhotoValue: photoDataUri },
+            options: { new: true },
         });
 
         if (!customer) {
             throw new NotFoundException("Customer not found");
         }
 
-        // TODO: Send photoDataUri to AI verification service via socket
-        // Example future implementation:
-        // const socket = getAISocket();
-        // socket.emit('verify:photo', { customerId, photoDataUri });
-        // const result = await waitForSocketResponse(socket, 'verify:result');
-        // return result;
+        const personKey = `${customer.firstName}_${customer.lastName}_${customer._id.toString()}`;
 
-        return { status: "verification_pending" };
+        sendPersonImagesToAI({
+            personKey,
+            images: [photoDataUri],
+        });
+
+        return {
+            status: "verification_photo_sent_to_ai",
+            personKey,
+        };
     }
 }
 

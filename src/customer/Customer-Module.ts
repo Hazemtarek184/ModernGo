@@ -10,7 +10,7 @@ const addressSchema = new Schema<IAddress>(
         postalCode: { type: String },
         country: { type: String },
     },
-    { _id: false }
+    { _id: false },
 );
 
 const customerSchema = new Schema<ICustomer>(
@@ -24,14 +24,14 @@ const customerSchema = new Schema<ICustomer>(
             unique: true,
             lowercase: true,
             trim: true,
-            maxlength: 255
+            maxlength: 255,
         },
 
         phone: {
             type: String,
             required: true,
             unique: true,
-            trim: true
+            trim: true,
         },
 
         password: {
@@ -39,43 +39,47 @@ const customerSchema = new Schema<ICustomer>(
             required: true,
             minlength: 8,
             maxlength: 128,
-            select: false
+            select: false,
         },
 
         profilePhotoKey: {
             type: String,
             required: false,
-            select: false
+            select: false,
         },
 
-        loginPhotoValue: { type: String, required: false },
-
+        loginPhotoValue: {
+            type: String,
+            required: false,
+        },
 
         address: { type: addressSchema },
     },
     {
         timestamps: true,
         toJSON: { virtuals: true },
-        toObject: { virtuals: true }
-    }
+        toObject: { virtuals: true },
+    },
 );
 
 // Virtual for full name
-customerSchema.virtual('fullName').get(function () {
+customerSchema.virtual("fullName").get(function (this: HydratedDocument<ICustomer>) {
     return `${this.firstName} ${this.lastName}`;
 });
 
 // Hash password before saving
-customerSchema.pre('save', async function () {
-    // Only hash the password if it has been modified (or is new)
-    if (!this.isModified('password')) return;
+customerSchema.pre("save", async function (this: HydratedDocument<ICustomer>) {
+    if (!this.isModified("password")) return;
 
     const salt = await bcrypt.genSalt(10);
     this.password = await bcrypt.hash(this.password, salt);
 });
 
 // Method to compare password
-customerSchema.methods.comparePassword = async function (candidatePassword: string): Promise<boolean> {
+customerSchema.methods.comparePassword = async function (
+    this: HydratedDocument<ICustomer>,
+    candidatePassword: string,
+): Promise<boolean> {
     try {
         return await bcrypt.compare(candidatePassword, this.password);
     } catch (error) {
@@ -84,7 +88,9 @@ customerSchema.methods.comparePassword = async function (candidatePassword: stri
 };
 
 // Export model with proper typing
-export const CustomerModel = (models.Customer as Model<HydratedDocument<ICustomer>>) || model<ICustomer>("Customer", customerSchema);
+export const CustomerModel: Model<ICustomer> =
+    (models.Customer as Model<ICustomer>) ||
+    model<ICustomer>("Customer", customerSchema);
 
 // Export document type with methods
 export type HCustomerDocument = HydratedDocument<ICustomer, ICustomerMethods>;

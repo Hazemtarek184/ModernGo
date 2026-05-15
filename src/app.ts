@@ -4,12 +4,18 @@ import cors from 'cors';
 import bodyParser from 'body-parser';
 import storesRouter from './store/Store-Router';
 import { globalErrorHandling } from './utils/error.response';
-import type { Request, Response } from "express";
+import type { NextFunction, Request, Response } from "express";
 import productsRouter from './product/Product-Router';
 import storeProductsRouter from './store-product/StoreProduct-Router';
 import customersRouter from './customer/Customer-Router';
 import healthProfileRouter from './health-profile/HealthProfile-Router';
 import cartItemRouter from "./cart/CartItem-Router";
+import { CustomerModel } from './customer/Customer-Module';
+import { StoreModel } from './store/Store-Module';
+import { ProductModel } from './product/Product-Module';
+import { StoreProductModel } from './store-product/StoreProduct-Module';
+import { CartItemModel } from './cart/CartItem-Module';
+import { HealthProfileModel } from './health-profile/HealthProfile-Modul';
 
 const app = express();
 
@@ -38,6 +44,31 @@ app.get('/health', (req: Request, res: Response) => {
     res.status(200).json({ success: true, message: "Server is healthy!" });
 });
 
+app.get("/api/debug/all", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const customers = await CustomerModel.find().lean();
+        const stores = await StoreModel.find().lean();
+        const products = await ProductModel.find().lean();
+        const storeProducts = await StoreProductModel.find().lean();
+        const cartItems = await CartItemModel.find().lean();
+        const healthProfiles = await HealthProfileModel.find().lean();
+
+        return res.status(200).json({
+            success: true,
+            message: "Database data fetched successfully",
+            data: {
+                customers,
+                stores,
+                products,
+                storeProducts,
+                cartItems,
+                healthProfiles,
+            },
+        });
+    } catch (error) {
+        return next(error);
+    }
+});
 // API Routes
 app.use("/api/stores", storesRouter);
 app.use("/api/products", productsRouter);

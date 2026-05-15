@@ -1,4 +1,4 @@
-import { model, models, Schema } from "mongoose";
+import { Model, model, models, Schema } from "mongoose";
 import { IHealthProfile } from "../types/HealthProfile-Interface";
 
 const healthProfileSchema = new Schema<IHealthProfile>(
@@ -7,7 +7,7 @@ const healthProfileSchema = new Schema<IHealthProfile>(
             type: Schema.Types.ObjectId,
             ref: "Customer",
             required: true,
-            unique: true
+            unique: true,
         },
 
         age: Number,
@@ -21,47 +21,47 @@ const healthProfileSchema = new Schema<IHealthProfile>(
         allergies: [
             {
                 allergen: String,
-                severity: String
-            }
+                severity: String,
+            },
         ],
 
         conditions: [
             {
                 name: String,
                 icd10: String,
-                severity: String
-            }
+                severity: String,
+            },
         ],
 
         medications: [
             {
                 name: String,
                 doseMg: Number,
-                frequencyPerDay: Number
-            }
+                frequencyPerDay: Number,
+            },
         ],
 
         dietaryRestrictions: {
             type: [String],
-            default: []
+            default: [],
         },
 
         riskFactors: {
             hypertension: Boolean,
             kidneyDisease: Boolean,
-            liverDisease: Boolean
+            liverDisease: Boolean,
         },
 
         lastUpdated: {
             type: Date,
-            default: Date.now
-        }
+            default: Date.now,
+        },
     },
     {
-        timestamps: true
-    }
+        timestamps: true,
+    },
 );
 
-export const HealthProfileModel =
-    models.HealthProfile ||
+export const HealthProfileModel: Model<IHealthProfile> =
+    (models.HealthProfile as Model<IHealthProfile>) ||
     model<IHealthProfile>("HealthProfile", healthProfileSchema);

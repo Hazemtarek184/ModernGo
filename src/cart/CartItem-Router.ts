@@ -8,7 +8,14 @@ const router = express.Router();
 router.get(
     "/me",
     authenticateCustomer,
-    CartItemController.getMyCart
+    CartItemController.getMyCart,
+);
+
+// Add product to cart and send health profile + product details to AI
+router.post(
+    "/health-check",
+    authenticateCustomer,
+    CartItemController.addProductAndCheckHealth,
 );
 
 export default router;

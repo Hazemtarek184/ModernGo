@@ -6,54 +6,52 @@ const cartItemSchema = new Schema<ICartItem>(
         customerId: {
             type: Schema.Types.ObjectId,
             ref: "Customer",
-            required: true
+            required: true,
         },
 
         storeProductId: {
             type: Schema.Types.ObjectId,
             ref: "StoreProduct",
-            required: true
+            required: true,
         },
 
         quantity: {
             type: Number,
             required: true,
             min: 1,
-            default: 1
+            default: 1,
         },
 
         isActive: {
             type: Boolean,
-            default: true
-        }
+            default: true,
+        },
     },
     {
         timestamps: {
             createdAt: "addedAt",
-            updatedAt: "updatedAt"
+            updatedAt: "updatedAt",
         },
         toJSON: { virtuals: true },
-        toObject: { virtuals: true }
+        toObject: { virtuals: true },
     }
 );
 
 // ─── Indexes ─────────────────────────────────────────────────────────
 
 // Prevent duplicate items: one row per customer + storeProduct
-cartItemSchema.index({ customerId: 1, storeProductId: 1 }, { unique: true });
+cartItemSchema.index(
+    { customerId: 1, storeProductId: 1 },
+    { unique: true }
+);
 
 // Fast lookup for "get this customer's entire cart"
 cartItemSchema.index({ customerId: 1 });
 
-// ─── Virtual: addedAt (alias for createdAt) ──────────────────────────
+// ─── Virtual total price ────────────────────────────────────────────
 
-cartItemSchema.virtual("addedAt").get(function () {
-    return (this as any).createdAt;
-});
-
-// Virtual total price
 cartItemSchema.virtual("totalPrice").get(function () {
-    const storeProduct = this.storeProductId;
+    const storeProduct = this.storeProductId as any;
 
     if (!storeProduct || !storeProduct.price) {
         return 0;
@@ -61,6 +59,8 @@ cartItemSchema.virtual("totalPrice").get(function () {
 
     return storeProduct.price * this.quantity;
 });
+
+// ─── Export Model ───────────────────────────────────────────────────
 
 export const CartItemModel =
     (models.CartItem as Model<HydratedDocument<ICartItem>>) ||

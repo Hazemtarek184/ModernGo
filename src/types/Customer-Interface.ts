@@ -17,7 +17,7 @@ export interface ICustomer {
     phone: string;
     password: string;
 
-    profilePhoto?: string;
+    profilePhotoKey?: string;
     loginPhotoValue?: string
 
     address?: IAddress;

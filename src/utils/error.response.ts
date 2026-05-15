@@ -1,4 +1,4 @@
-import type { Request, Response, NextFunction } from "express"
+import type { Request, Response, NextFunction } from "express";
 
 export class ApplicationException extends Error {
     constructor(
@@ -7,8 +7,8 @@ export class ApplicationException extends Error {
         cause?: unknown
     ) {
         super(message, { cause });
-        this.name = this.constructor.name
-        Error.captureStackTrace(this, this.constructor)
+        this.name = this.constructor.name;
+        Error.captureStackTrace(this, this.constructor);
     }
 }
 
@@ -42,6 +42,20 @@ export class ConflictException extends ApplicationException {
     }
 }
 
+/**
+ * Wrap async controllers so we don't repeat try/catch.
+ *
+ * Any error thrown inside the controller will automatically go to:
+ * next(error) -> globalErrorHandling
+ */
+export const asyncHandler = (
+    fn: (req: Request, res: Response, next: NextFunction) => Promise<unknown>
+) => {
+    return (req: Request, res: Response, next: NextFunction): void => {
+        Promise.resolve(fn(req, res, next)).catch(next);
+    };
+};
+
 /** Global error handling middleware */
 export const globalErrorHandling = (
     error: Error,
@@ -55,7 +69,7 @@ export const globalErrorHandling = (
             message: error.message,
             stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
             cause: error.cause,
-        })
+        });
     }
 
     // Unexpected errors — hide internals in production
@@ -64,5 +78,5 @@ export const globalErrorHandling = (
     return res.status(500).json({
         message: "something went wrong",
         stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
-    })
-}
+    });
+};
