@@ -5,6 +5,48 @@ import { CustomerRepository } from "../DB/repository/Customer-Repository";
 import { BadRequestException, NotFoundException } from "../utils/error.response";
 import bcrypt from "bcrypt";
 import { generateToken } from "../utils/jwt.utils";
+import fs from "fs";
+import path from "path";
+
+/**
+ * Helper to save a customer's profile photo and verification photo to the AI faces directory
+ */
+async function saveImagesToAiFacesFolder(
+    customer: any,
+    profilePhotoKey?: string,
+    verificationPhotoDataUri?: string,
+): Promise<void> {
+    try {
+        const firstNameClean = customer.firstName.trim().toLowerCase().replace(/\s+/g, "_");
+        const lastNameClean = customer.lastName.trim().toLowerCase().replace(/\s+/g, "_");
+        const folderName = `${firstNameClean}_${lastNameClean}_${customer._id.toString()}`;
+        const targetDir = path.resolve(process.cwd(), "..", "..", "ai", "faces", folderName);
+
+        // Ensure the directory exists
+        if (!fs.existsSync(targetDir)) {
+            fs.mkdirSync(targetDir, { recursive: true });
+        }
+
+        const saveBase64Image = (dataUri: string, filename: string) => {
+            const match = dataUri.match(/^data:image\/\w+;base64,(.+)$/);
+            if (match && match[1]) {
+                const buffer = Buffer.from(match[1], "base64");
+                fs.writeFileSync(path.join(targetDir, filename), buffer);
+            }
+        };
+
+        if (profilePhotoKey) {
+            saveBase64Image(profilePhotoKey, "photo1.jpg");
+        }
+        if (verificationPhotoDataUri) {
+            saveBase64Image(verificationPhotoDataUri, "photo2.jpg");
+        }
+        console.log(`[Face DB] Successfully saved images for ${customer.firstName} ${customer.lastName} in ${targetDir}`);
+    } catch (error) {
+        console.error("[Face DB] Error saving photos to AI faces directory:", error);
+    }
+}
+
 
 interface RegisterCustomerDto {
     firstName: string;
@@ -321,6 +363,7 @@ class CustomerService {
         // If no profile photo exists, skip comparison and accept verification
         // (e.g. test accounts or legacy users who registered without a photo)
         if (!profileCustomer?.profilePhotoKey) {
+            await saveImagesToAiFacesFolder(customer, undefined, photoDataUri);
             return {
                 status: "verified",
                 matched: true,
@@ -336,6 +379,7 @@ class CustomerService {
         );
 
         if (comparison.status === "verified") {
+            await saveImagesToAiFacesFolder(customer, profileCustomer.profilePhotoKey, photoDataUri);
             return {
                 status: "verified",
                 matched: true,

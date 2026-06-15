@@ -274,6 +274,12 @@ class CartItemService {
         const customerOid = new Types.ObjectId(customerId);
         const productOid = new Types.ObjectId(storeProductId);
 
+        // Verify the store product exists in database to prevent cart corruption
+        const storeProduct = await StoreProductModel.findById(productOid);
+        if (!storeProduct) {
+            throw new NotFoundException(`Store product with ID ${storeProductId} not found. Ensure you are passing a StoreProduct ID and not a general Product ID.`);
+        }
+
         let updatedItem: ICartItem | null = null;
 
         if (action === "pick") {

@@ -2,6 +2,9 @@ import { Server as HttpServer } from "http";
 import { Server, Socket } from "socket.io";
 import { authenticateAiSocket, authenticateMobileSocket } from "./Socket-Auth";
 import CartItemService from "../cart/CartItem-Service";
+import { CustomerModel } from "../customer/Customer-Module";
+import { StoreProductModel } from "../store-product/StoreProduct-Module";
+import { ProductModel } from "../product/Product-Module";
 
 let aiNamespace: ReturnType<Server["of"]> | null = null;
 
@@ -302,6 +305,27 @@ export function initSocketServer(httpServer: HttpServer): Server {
                     message: "Failed to handle person left event",
                     error: error.message,
                 });
+            }
+        });
+
+        socket.on("ai:get_debug_data", async (ack) => {
+            try {
+                const customers = await CustomerModel.find({}, "firstName lastName email").lean();
+                const storeProductsRaw = await StoreProductModel.find().lean();
+                const storeProducts = [];
+                for (const sp of storeProductsRaw) {
+                    const product = await ProductModel.findById(sp.productId).lean();
+                    storeProducts.push({
+                        _id: sp._id.toString(),
+                        name: product ? product.name : "Unknown Product",
+                        price: sp.price,
+                    });
+                }
+                if (typeof ack === "function") {
+                    ack({ customers, storeProducts });
+                }
+            } catch (err: any) {
+                console.error("ai:get_debug_data error:", err.message);
             }
         });
 
