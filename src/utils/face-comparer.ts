@@ -9,8 +9,11 @@
 import path from "path";
 import sharp from "sharp";
 import * as tf from "@tensorflow/tfjs";
-import "@tensorflow/tfjs-backend-wasm";
+import { setWasmPath } from "@tensorflow/tfjs-backend-wasm";
 import * as faceapi from "@vladmandic/face-api";
+
+// Point tfjs at the WASM binaries shipped with the package
+setWasmPath(path.join(process.cwd(), "node_modules", "@tensorflow", "tfjs-backend-wasm", "dist"));
 
 // ── Types ────────────────────────────────────────────────────────────
 
