@@ -1,12 +1,15 @@
 /**
- * Server-side face comparison using @vladmandic/face-api + @tensorflow/tfjs-node.
+ * Server-side face comparison using @vladmandic/face-api.
  *
+ * Uses the WASM TensorFlow backend (no native compilation needed).
  * Models are loaded lazily on the first call to compareFaces(), and cached
  * for subsequent calls. Tensors are explicitly disposed after each comparison
  * to prevent memory leaks.
  */
 import path from "path";
-import * as tf from "@tensorflow/tfjs-node";
+import sharp from "sharp";
+import * as tf from "@tensorflow/tfjs";
+import "@tensorflow/tfjs-backend-wasm";
 import * as faceapi from "@vladmandic/face-api";
 
 // ── Types ────────────────────────────────────────────────────────────
@@ -48,15 +51,24 @@ function ensureModelsLoaded(): Promise<void> {
     return loadPromise;
 }
 
-// ── Data URI → Tensor ───────────────────────────────────────────────
+// ── Data URI → Tensor (via sharp — no native tfjs addon needed) ─────
 
-function dataUriToTensor(dataUri: string): tf.Tensor3D {
+async function dataUriToTensor(dataUri: string): Promise<tf.Tensor3D> {
     const match = dataUri.match(/^data:image\/\w+;base64,(.+)$/);
     if (!match?.[1]) {
         throw new Error("Invalid image data URI");
     }
     const buffer = Buffer.from(match[1], "base64");
-    return tf.node.decodeImage(buffer, 3) as tf.Tensor3D;
+    const image = sharp(buffer).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+    const { data, info } = await image;
+    // info: { width, height, channels } — always 4 with ensureAlpha
+    const rgbData = new Uint8Array(info.width * info.height * 3);
+    for (let i = 0; i < info.width * info.height; i++) {
+        rgbData[i * 3] = data[i * 4];       // R
+        rgbData[i * 3 + 1] = data[i * 4 + 1]; // G
+        rgbData[i * 3 + 2] = data[i * 4 + 2]; // B
+    }
+    return tf.tensor3d(rgbData, [info.height, info.width, 3]) as tf.Tensor3D;
 }
 
 // ── Descriptor extraction ───────────────────────────────────────────
@@ -96,8 +108,10 @@ export async function compareFaces(
     let verifyTensor: tf.Tensor3D | null = null;
 
     try {
-        profileTensor = dataUriToTensor(profilePhotoDataUri);
-        verifyTensor = dataUriToTensor(verificationPhotoDataUri);
+        [profileTensor, verifyTensor] = await Promise.all([
+            dataUriToTensor(profilePhotoDataUri),
+            dataUriToTensor(verificationPhotoDataUri),
+        ]);
     } catch (err: any) {
         return {
             status: "processing_error",
