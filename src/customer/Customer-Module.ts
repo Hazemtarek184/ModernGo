@@ -88,8 +88,8 @@ customerSchema.methods.comparePassword = async function (
 };
 
 // Export model with proper typing
-export const CustomerModel: Model<ICustomer> =
-    (models.Customer as Model<ICustomer>) ||
+export const CustomerModel: Model<HydratedDocument<ICustomer>> =
+    (models.Customer as Model<HydratedDocument<ICustomer>>) ||
     model<ICustomer>("Customer", customerSchema);
 
 // Export document type with methods

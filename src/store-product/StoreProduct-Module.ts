@@ -44,5 +44,5 @@ storeProductSchema.index({ productId: 1 });
 storeProductSchema.index({ isAvailable: 1 });
 
 export const StoreProductModel =
-    (models.StoreProduct as Model<IStoreProduct>) || model<IStoreProduct>("StoreProduct", storeProductSchema);
+    (models.StoreProduct as Model<HydratedDocument<IStoreProduct>>) || model<IStoreProduct>("StoreProduct", storeProductSchema);
 export type HStoreProductDocument = HydratedDocument<IStoreProduct>;
