@@ -18,4 +18,11 @@ router.post(
     CartItemController.addProductAndCheckHealth,
 );
 
+// Fake checkout process and clear cart
+router.post(
+    "/checkout",
+    authenticateCustomer,
+    CartItemController.checkout,
+);
+
 export default router;

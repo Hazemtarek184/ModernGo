@@ -44,6 +44,21 @@ class CartItemController {
             data: result,
         });
     });
+
+    checkout = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+        const customerId = req.customer?.customerId;
+
+        if (!customerId) {
+            throw new UnauthorizedException("Customer not authenticated");
+        }
+
+        await CartItemService.clearCustomerCart(customerId);
+
+        res.status(200).json({
+            success: true,
+            message: "Checkout successful",
+        });
+    });
 }
 
 export default new CartItemController();
