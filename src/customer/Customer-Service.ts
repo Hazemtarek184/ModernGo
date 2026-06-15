@@ -276,16 +276,18 @@ class CustomerService {
 
     /**
      * Process a verification photo submitted by an authenticated customer.
-     * This method is called after login when the customer submits a live photo
-     * for AI-based identity verification.
-     *
-     * TODO: Implement socket connection to AI service
-     * Flow: Customer submits photo → convert to buffer → send via socket → AI processes
+     * Compares the live photo against the stored profile photo using
+     * server-side face recognition. Returns match result or forces retake.
      */
     async processVerificationPhoto(
         customerId: string,
         photoDataUri: string,
-    ): Promise<{ status: string; personKey: string }> {
+    ): Promise<{
+        status: string;
+        matched: boolean;
+        distance?: number;
+        personKey: string;
+    }> {
         if (!Types.ObjectId.isValid(customerId)) {
             throw new BadRequestException("Invalid customerId format");
         }
@@ -304,15 +306,55 @@ class CustomerService {
             throw new NotFoundException("Customer not found");
         }
 
+        // Fetch profile photo (select: false in schema — must explicitly select)
+        const profileCustomer = await this.customerRepository.findOne({
+            filter: { _id: new Types.ObjectId(customerId) },
+            select: "+profilePhotoKey",
+        });
+
+        if (!profileCustomer?.profilePhotoKey) {
+            throw new BadRequestException(
+                "No profile photo on file. Please contact support.",
+            );
+        }
+
+        // Run face comparison (lazy-loaded — first call loads tfjs models)
+        const { compareFaces } = await import("../utils/face-comparer");
+        const comparison = await compareFaces(
+            profileCustomer.profilePhotoKey,
+            photoDataUri,
+        );
+
         const personKey = `${customer.firstName}_${customer.lastName}_${customer._id.toString()}`;
 
+        // Still forward to AI socket for future external AI integration
         sendPersonImagesToAI({
             personKey,
             images: [photoDataUri],
         });
 
+        if (comparison.status === "verified") {
+            return {
+                status: "verified",
+                matched: true,
+                distance: comparison.distance,
+                personKey,
+            };
+        }
+
+        if (comparison.status === "face_mismatch") {
+            return {
+                status: "face_mismatch",
+                matched: false,
+                distance: comparison.distance,
+                personKey,
+            };
+        }
+
+        // no_face_detected / model_load_failed / processing_error
         return {
-            status: "verification_photo_sent_to_ai",
+            status: comparison.status,
+            matched: false,
             personKey,
         };
     }
