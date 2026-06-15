@@ -11,11 +11,7 @@ import type {
     ICartUpdatedPayload,
 } from "../types/CartItem-Interface";
 import { StoreProductModel } from "../store-product/StoreProduct-Module";
-
-type PhantomCartItem = {
-    storeProductId: string;
-    quantity: 0 | 1;
-};
+import { IPhantomCart, PhantomCartModel } from "../phantom-cart/PhantomCart-Module";
 
 type StockSnapshotItem = {
     storeProductId: string;
@@ -27,8 +23,6 @@ type StockSnapshotPayload = {
 
 class CartItemService {
     private cartItemRepository = new CartItemRepository(CartItemModel as any);
-
-    private phantomCarts = new Map<string, PhantomCartItem[]>();
 
     constructor() { }
     // Event 3: Cart Event
@@ -69,7 +63,6 @@ class CartItemService {
             console.log("[Cart] Saved item in phantom cart:", {
                 phantomKey: personKey,
                 storeProductId,
-                phantomCart: this.getPhantomCart(personKey),
             });
 
             return null;
@@ -142,7 +135,7 @@ class CartItemService {
             };
         }
 
-        this.phantomCarts.delete(personKey);
+        await PhantomCartModel.deleteMany({ phantomKey: personKey });
 
         console.log("[Cart] Phantom person left store, phantom cart removed:", {
             phantomKey: personKey,
@@ -299,48 +292,37 @@ class CartItemService {
             cart,
         };
     }
-    // Phantom Cart
+    // Phantom Cart (persisted in database)
     private async handlePhantomCartAction(
         phantomKey: string,
         storeProductId: string,
         action: "pick" | "release",
     ): Promise<void> {
-        const cart = this.phantomCarts.get(phantomKey) || [];
-
         if (action === "pick") {
+            // Remove product from any real cart (ownership transfer)
             await this.cartItemRepository.deleteMany({
                 filter: {
                     storeProductId: new Types.ObjectId(storeProductId),
                 } as any,
             });
 
-            this.removeProductFromOtherPhantomCarts(phantomKey, storeProductId);
+            // Remove from other phantom carts (ownership transfer)
+            await PhantomCartModel.deleteMany({
+                storeProductId,
+                phantomKey: { $ne: phantomKey },
+            });
 
-            const existingItem = cart.find(
-                (item) => item.storeProductId === storeProductId,
+            // Upsert: one item per phantom person
+            await PhantomCartModel.updateOne(
+                { phantomKey, storeProductId },
+                { $set: { phantomKey, storeProductId, quantity: 1 } },
+                { upsert: true },
             );
-
-            if (!existingItem) {
-                cart.push({
-                    storeProductId,
-                    quantity: 1,
-                });
-            }
-
-            this.phantomCarts.set(phantomKey, cart);
             return;
         }
 
         if (action === "release") {
-            const newCart = cart.filter(
-                (item) => item.storeProductId !== storeProductId,
-            );
-
-            if (newCart.length === 0) {
-                this.phantomCarts.delete(phantomKey);
-            } else {
-                this.phantomCarts.set(phantomKey, newCart);
-            }
+            await PhantomCartModel.deleteOne({ phantomKey, storeProductId });
         }
     }
 
@@ -354,40 +336,15 @@ class CartItemService {
             } as any,
         });
 
-        this.removeProductFromAllPhantomCarts(storeProductId.toString());
+        await PhantomCartModel.deleteMany({
+            storeProductId: storeProductId.toString(),
+        });
     }
 
-    private removeProductFromAllPhantomCarts(storeProductId: string): void {
-        for (const [phantomKey, cart] of this.phantomCarts.entries()) {
-            const newCart = cart.filter(
-                (item) => item.storeProductId !== storeProductId,
-            );
-
-            if (newCart.length === 0) {
-                this.phantomCarts.delete(phantomKey);
-            } else {
-                this.phantomCarts.set(phantomKey, newCart);
-            }
-        }
-    }
-
-    private removeProductFromOtherPhantomCarts(
-        currentPhantomKey: string,
+    private async removeProductFromAllPhantomCarts(
         storeProductId: string,
-    ): void {
-        for (const [phantomKey, cart] of this.phantomCarts.entries()) {
-            if (phantomKey === currentPhantomKey) continue;
-
-            const newCart = cart.filter(
-                (item) => item.storeProductId !== storeProductId,
-            );
-
-            if (newCart.length === 0) {
-                this.phantomCarts.delete(phantomKey);
-            } else {
-                this.phantomCarts.set(phantomKey, newCart);
-            }
-        }
+    ): Promise<void> {
+        await PhantomCartModel.deleteMany({ storeProductId });
     }
 
     // Pick / Release
@@ -402,7 +359,7 @@ class CartItemService {
             } as any,
         });
 
-        this.removeProductFromAllPhantomCarts(storeProductId.toString());
+        await this.removeProductFromAllPhantomCarts(storeProductId.toString());
 
         const item = await this.cartItemRepository.findOneAndUpdate({
             filter: {
@@ -457,8 +414,8 @@ class CartItemService {
         return items as unknown as ICartItem[];
     }
 
-    getPhantomCart(phantomKey: string): PhantomCartItem[] {
-        return this.phantomCarts.get(phantomKey) || [];
+    async getPhantomCart(phantomKey: string): Promise<IPhantomCart[]> {
+        return await PhantomCartModel.find({ phantomKey }).lean();
     }
 
     async clearCustomerCart(customerId: string): Promise<void> {
