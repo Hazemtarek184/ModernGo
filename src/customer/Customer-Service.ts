@@ -123,7 +123,7 @@ class CustomerService {
                 email: dto.email.toLowerCase().trim(),
                 phone: dto.phone.trim(),
                 password: dto.password,
-                profilePhoto: dto.profilePhoto,
+                profilePhotoKey: dto.profilePhoto,
                 address: dto.address,
             }]
         });
@@ -132,7 +132,7 @@ class CustomerService {
             throw new BadRequestException("Failed to create customer account");
         }
 
-        // Return customer without password and profilePhoto (both are select: false fields)
+        // Return customer without password and profilePhotoKey (both are select: false fields)
         const customerObject = customer.toObject();
         const { password, profilePhotoKey, ...customerWithoutSensitive } = customerObject;
 
@@ -187,7 +187,7 @@ class CustomerService {
 
         const customer = await this.customerRepository.findOne({
             filter: { _id: new Types.ObjectId(customerId) },
-            select: '+profilePhoto'
+            select: '+profilePhotoKey'
         });
 
         if (!customer) {
