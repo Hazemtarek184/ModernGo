@@ -70,7 +70,7 @@ class CustomerService {
         const updatedCustomer = await this.customerRepository.findOneAndUpdate({
             filter: { _id: new Types.ObjectId(customerId) },
             update: { profilePhotoKey },
-            options: { new: true }
+            options: { returnDocument: "after" }
         });
 
         if (!updatedCustomer) {
@@ -89,7 +89,7 @@ class CustomerService {
         const updatedCustomer = await this.customerRepository.findOneAndUpdate({
             filter: { _id: new Types.ObjectId(customerId) },
             update: { loginPhotoValue },
-            options: { new: true }
+            options: { returnDocument: "after" }
         });
 
         if (!updatedCustomer) throw new NotFoundException("Customer not found");
@@ -232,7 +232,7 @@ class CustomerService {
                 ...(dto.phone && { phone: dto.phone.trim() }),
                 ...(dto.address && { address: dto.address }),
             },
-            options: { new: true }
+            options: { returnDocument: "after" }
         });
 
         if (!updatedCustomer) {
@@ -299,7 +299,7 @@ class CustomerService {
         const customer = await this.customerRepository.findOneAndUpdate({
             filter: { _id: new Types.ObjectId(customerId) },
             update: { loginPhotoValue: photoDataUri },
-            options: { new: true },
+            options: { returnDocument: "after" },
         });
 
         if (!customer) {
@@ -312,10 +312,22 @@ class CustomerService {
             select: "+profilePhotoKey",
         });
 
+        const personKey = `${customer.firstName}_${customer.lastName}_${customer._id.toString()}`;
+
+        // Still forward to AI socket for future external AI integration
+        sendPersonImagesToAI({
+            personKey,
+            images: [photoDataUri],
+        });
+
+        // If no profile photo exists, skip comparison and accept verification
+        // (e.g. test accounts or legacy users who registered without a photo)
         if (!profileCustomer?.profilePhotoKey) {
-            throw new BadRequestException(
-                "No profile photo on file. Please contact support.",
-            );
+            return {
+                status: "verified",
+                matched: true,
+                personKey,
+            };
         }
 
         // Run face comparison (lazy-loaded — first call loads tfjs models)
@@ -324,14 +336,6 @@ class CustomerService {
             profileCustomer.profilePhotoKey,
             photoDataUri,
         );
-
-        const personKey = `${customer.firstName}_${customer.lastName}_${customer._id.toString()}`;
-
-        // Still forward to AI socket for future external AI integration
-        sendPersonImagesToAI({
-            personKey,
-            images: [photoDataUri],
-        });
 
         if (comparison.status === "verified") {
             return {

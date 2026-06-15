@@ -206,7 +206,7 @@ class StoreService {
                 ...(dto.location && { location: dto.location }),
                 ...(dto.categories && { categories: dto.categories }),
             },
-            options: { new: true }
+            options: { returnDocument: "after" }
         });
 
         if (!updatedStore) {

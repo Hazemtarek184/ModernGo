@@ -129,7 +129,7 @@ class StoreProductService {
                 productId: new Types.ObjectId(productId),
             },
             update: updates,
-            options: { new: true },
+            options: { returnDocument: "after" },
         });
 
         if (!updatedStoreProduct) {

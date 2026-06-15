@@ -29,7 +29,7 @@ export class HealthProfileRepository extends DatabaseRepository<IHealthProfile, 
         return await this.findOneAndUpdate({
             filter: { customerId: normalizedCustomerId },
             update,
-            options: { new: true }
+            options: { returnDocument: "after" }
         });
     }
 

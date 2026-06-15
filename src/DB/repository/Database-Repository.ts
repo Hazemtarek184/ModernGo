@@ -113,7 +113,7 @@ export abstract class DatabaseRepository<TRawDocument, TDocument = HydratedDocum
     async findByIdAndUpdate({
         id,
         update,
-        options = { new: true },
+        options = { returnDocument: "after" },
 
     }: {
         id: Types.ObjectId;
@@ -132,7 +132,7 @@ export abstract class DatabaseRepository<TRawDocument, TDocument = HydratedDocum
     async findOneAndUpdate({
         filter,
         update,
-        options = { new: true },
+        options = { returnDocument: "after" },
 
 
     }: {

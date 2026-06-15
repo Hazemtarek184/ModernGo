@@ -173,7 +173,7 @@ class ProductService {
                 salePrice,
                 updatedBy: new Types.ObjectId(storeId),
             },
-            options: { new: true }
+            options: { returnDocument: "after" }
         });
 
         if (!updatedProduct) {
@@ -216,7 +216,7 @@ class ProductService {
         const updatedProduct = await this.productRepository.findOneAndUpdate({
             filter: { _id: new Types.ObjectId(productId) },
             update: updates,
-            options: { new: true }
+            options: { returnDocument: "after" }
         });
 
         if (!updatedProduct) {

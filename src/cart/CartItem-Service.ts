@@ -375,7 +375,7 @@ class CartItemService {
                 },
             } as any,
             options: {
-                new: true,
+                returnDocument: "after",
                 upsert: true,
             },
         });
