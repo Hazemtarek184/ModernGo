@@ -12,10 +12,7 @@ class CartItemController {
             throw new UnauthorizedException("Customer not authenticated");
         }
 
-        const cartItems = await CartItemModel.find({
-            customerId: new Types.ObjectId(customerId),
-            isActive: true,
-        }).populate("storeProductId");
+        const cartItems = await CartItemService.getCustomerCart(customerId);
 
         res.status(200).json({
             success: true,
