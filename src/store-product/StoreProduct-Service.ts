@@ -6,7 +6,7 @@ import { StoreModel } from "../store/Store-Module";
 import { BadRequestException, NotFoundException } from "../utils/error.response";
 
 class StoreProductService {
-    private storeProductRepository = new StoreProductRepository(StoreProductModel as any);
+    private storeProductRepository = new StoreProductRepository(StoreProductModel);
 
     constructor() { }
 

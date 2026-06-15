@@ -1,11 +1,10 @@
-import { HydratedDocument, Model, Types } from "mongoose";
+import { Types } from "mongoose";
 import { BadRequestException, NotFoundException } from "../utils/error.response";
 import { HealthProfileRepository } from "../DB/repository/HealthProfile-Repository";
 import { IHealthProfile } from "../types/HealthProfile-Interface";
 import { HealthProfileModel } from "../health-profile/HealthProfile-Modul";
 class HealthProfileService {
-    private healthProfileRepository = new HealthProfileRepository(
-        HealthProfileModel as Model<HydratedDocument<IHealthProfile>>);
+    private healthProfileRepository = new HealthProfileRepository(HealthProfileModel);
 
     private validateCustomerId(customerId: string) {
         if (!Types.ObjectId.isValid(customerId)) {

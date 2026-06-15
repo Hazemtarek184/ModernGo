@@ -9,13 +9,17 @@
 import path from "path";
 import sharp from "sharp";
 import * as tf from "@tensorflow/tfjs";
-import { setWasmPath } from "@tensorflow/tfjs-backend-wasm";
+import { setWasmPaths } from "@tensorflow/tfjs-backend-wasm";
 // Import the WASM distribution — the default dist/face-api.node.js requires
 // @tensorflow/tfjs-node (native addon) which fails on this machine.
 import * as faceapi from "@vladmandic/face-api/dist/face-api.node-wasm.js";
 
-// Point tfjs at the WASM binaries shipped with the package
-setWasmPath(path.join(process.cwd(), "node_modules", "@tensorflow", "tfjs-backend-wasm", "dist"));
+const wasmDir = path.join(process.cwd(), "node_modules", "@tensorflow", "tfjs-backend-wasm", "dist");
+setWasmPaths({
+  'tfjs-backend-wasm.wasm': path.join(wasmDir, 'tfjs-backend-wasm.wasm'),
+  'tfjs-backend-wasm-simd.wasm': path.join(wasmDir, 'tfjs-backend-wasm-simd.wasm'),
+  'tfjs-backend-wasm-threaded-simd.wasm': path.join(wasmDir, 'tfjs-backend-wasm-threaded-simd.wasm')
+});
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -64,14 +68,14 @@ async function dataUriToTensor(dataUri: string): Promise<tf.Tensor3D> {
         throw new Error("Invalid image data URI");
     }
     const buffer = Buffer.from(match[1], "base64");
-    const image = sharp(buffer).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+    const image = sharp(buffer).rotate().ensureAlpha().raw().toBuffer({ resolveWithObject: true });
     const { data, info } = await image;
     // info: { width, height, channels } — always 4 with ensureAlpha
     const rgbData = new Uint8Array(info.width * info.height * 3);
     for (let i = 0; i < info.width * info.height; i++) {
-        rgbData[i * 3] = data[i * 4];       // R
-        rgbData[i * 3 + 1] = data[i * 4 + 1]; // G
-        rgbData[i * 3 + 2] = data[i * 4 + 2]; // B
+        rgbData[i * 3] = data[i * 4]!;       // R
+        rgbData[i * 3 + 1] = data[i * 4 + 1]!; // G
+        rgbData[i * 3 + 2] = data[i * 4 + 2]!; // B
     }
     return tf.tensor3d(rgbData, [info.height, info.width, 3]) as tf.Tensor3D;
 }
@@ -81,18 +85,52 @@ async function dataUriToTensor(dataUri: string): Promise<tf.Tensor3D> {
 async function extractDescriptor(
     tensor: tf.Tensor3D,
 ): Promise<Float32Array | null> {
+    // First attempt with standard parameters (good for most selfies)
     const detection = await faceapi
-        .detectSingleFace(tensor, new faceapi.TinyFaceDetectorOptions({
-            inputSize: 320,
-            scoreThreshold: 0.5,
+        .detectSingleFace(tensor as any, new faceapi.TinyFaceDetectorOptions({
+            inputSize: 416,
+            scoreThreshold: 0.3,
         }))
         .withFaceLandmarks()
         .withFaceDescriptor();
 
-    return detection?.descriptor ?? null;
+    if (detection?.descriptor) {
+        return detection.descriptor;
+    }
+
+    // Fallback: retry with smaller input size and lower threshold
+    // for challenging photos (poor lighting, angles, lower-quality front cameras)
+    const fallbackDetection = await faceapi
+        .detectSingleFace(tensor as any, new faceapi.TinyFaceDetectorOptions({
+            inputSize: 320,
+            scoreThreshold: 0.2,
+        }))
+        .withFaceLandmarks()
+        .withFaceDescriptor();
+
+    return fallbackDetection?.descriptor ?? null;
 }
 
 // ── Public API ───────────────────────────────────────────────────────
+
+export async function verifyFaceExists(photoDataUri: string): Promise<boolean> {
+    try {
+        await ensureModelsLoaded();
+    } catch (err: any) {
+        throw new Error(err?.message ?? "Failed to load face recognition models");
+    }
+
+    let tensor: tf.Tensor3D | null = null;
+    try {
+        tensor = await dataUriToTensor(photoDataUri);
+        const desc = await extractDescriptor(tensor);
+        return desc !== null;
+    } catch (err) {
+        return false;
+    } finally {
+        tensor?.dispose();
+    }
+}
 
 export async function compareFaces(
     profilePhotoDataUri: string,

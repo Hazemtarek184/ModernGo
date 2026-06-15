@@ -1,4 +1,4 @@
-import { HydratedDocument, Model, model, models, Schema } from "mongoose";
+import { Model, model, models, Schema } from "mongoose";
 import { ICartItem } from "../types/CartItem-Interface";
 
 const cartItemSchema = new Schema<ICartItem>(
@@ -63,5 +63,5 @@ cartItemSchema.virtual("totalPrice").get(function () {
 // ─── Export Model ───────────────────────────────────────────────────
 
 export const CartItemModel =
-    (models.CartItem as Model<HydratedDocument<ICartItem>>) ||
+    (models.CartItem as Model<ICartItem>) ||
     model<ICartItem>("CartItem", cartItemSchema);

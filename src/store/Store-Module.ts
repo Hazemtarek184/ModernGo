@@ -74,7 +74,7 @@ storeSchema.methods.comparePassword = async function (candidatePassword: string)
 };
 
 // Export model with proper typing
-export const StoreModel = (models.Store as Model<HydratedDocument<IStore>>) || model<IStore>("Store", storeSchema);
+export const StoreModel = (models.Store as Model<IStore>) || model<IStore>("Store", storeSchema);
 
 // Export document type with methods
 export type HStoreDocument = HydratedDocument<IStore, IStoreMethods>;

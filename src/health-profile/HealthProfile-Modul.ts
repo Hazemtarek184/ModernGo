@@ -1,4 +1,4 @@
-import { HydratedDocument, Model, model, models, Schema } from "mongoose";
+import { Model, model, models, Schema } from "mongoose";
 import { IHealthProfile } from "../types/HealthProfile-Interface";
 
 const healthProfileSchema = new Schema<IHealthProfile>(
@@ -62,6 +62,6 @@ const healthProfileSchema = new Schema<IHealthProfile>(
     },
 );
 
-export const HealthProfileModel: Model<HydratedDocument<IHealthProfile>> =
-    (models.HealthProfile as Model<HydratedDocument<IHealthProfile>>) ||
+export const HealthProfileModel: Model<IHealthProfile> =
+    (models.HealthProfile as Model<IHealthProfile>) ||
     model<IHealthProfile>("HealthProfile", healthProfileSchema);

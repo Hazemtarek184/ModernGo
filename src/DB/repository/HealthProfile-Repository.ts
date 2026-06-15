@@ -6,7 +6,7 @@ type HealthProfileDoc = HydratedDocument<IHealthProfile>;
 type HealthProfileResult = HealthProfileDoc | Lean<HealthProfileDoc> | null;
 
 export class HealthProfileRepository extends DatabaseRepository<IHealthProfile, HealthProfileDoc> {
-    constructor(protected override model: Model<HealthProfileDoc>) {
+    constructor(protected override model: Model<IHealthProfile>) {
         super(model);
     }
 

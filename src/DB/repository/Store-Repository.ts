@@ -3,7 +3,7 @@ import { DatabaseRepository } from "./Database-Repository";
 import { IStore } from '../../types/Store-Interface';
 
 export class StoreRepository extends DatabaseRepository<IStore, HydratedDocument<IStore>> {
-    constructor(protected override readonly model: Model<HydratedDocument<IStore>>) {
+    constructor(protected override readonly model: Model<IStore>) {
         super(model);
     }
 

@@ -3,7 +3,7 @@ import "dotenv/config.js";
 import cors from 'cors';
 import bodyParser from 'body-parser';
 import { globalErrorHandling } from './utils/error.response';
-import type { NextFunction, Request, Response } from "express";
+import type { Request, Response } from "express";
 import storesRouter from './store/Store-Router';
 import productsRouter from './product/Product-Router';
 import storeProductsRouter from './store-product/StoreProduct-Router';

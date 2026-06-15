@@ -1,4 +1,4 @@
-import { HydratedDocument, Model, Schema, model, models } from "mongoose";
+import { Model, Schema, model, models } from "mongoose";
 
 export interface IPhantomCart {
     phantomKey: string;
@@ -23,5 +23,5 @@ phantomCartSchema.index({ phantomKey: 1, storeProductId: 1 }, { unique: true });
 phantomCartSchema.index({ storeProductId: 1 });
 
 export const PhantomCartModel =
-    (models.PhantomCart as Model<HydratedDocument<IPhantomCart>>) ||
+    (models.PhantomCart as Model<IPhantomCart>) ||
     model<IPhantomCart>("PhantomCart", phantomCartSchema);

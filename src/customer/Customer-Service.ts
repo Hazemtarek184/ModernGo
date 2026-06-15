@@ -5,8 +5,6 @@ import { CustomerRepository } from "../DB/repository/Customer-Repository";
 import { BadRequestException, NotFoundException } from "../utils/error.response";
 import bcrypt from "bcrypt";
 import { generateToken } from "../utils/jwt.utils";
-import { HydratedDocument, Model } from "mongoose";
-import { ICustomer } from "../types/Customer-Interface";
 
 interface RegisterCustomerDto {
     firstName: string;
@@ -57,7 +55,7 @@ class CustomerService {
     // }
 
     private customerRepository = new CustomerRepository(
-        CustomerModel as Model<HydratedDocument<ICustomer>>,
+        CustomerModel,
     ); constructor() { }
 
 

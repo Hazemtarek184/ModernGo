@@ -25,15 +25,17 @@ export const validatePhotoSize = (file: Express.Multer.File, maxSizeMB: number =
  */
 export const compressAndEncodePhoto = async (file: Express.Multer.File): Promise<string> => {
     try {
-        // Compress using sharp
+        // Compress using sharp — keep enough resolution and quality for
+        // reliable face detection while staying efficient for MongoDB storage.
         const compressedBuffer = await sharp(file.buffer)
+            .rotate()
             .resize({
-                width: 800,
-                height: 800,
-                fit: 'inside', // maintains aspect ratio, fits within 800x800
+                width: 1024,
+                height: 1024,
+                fit: 'inside', // maintains aspect ratio, fits within 1024x1024
                 withoutEnlargement: true // don't enlarge smaller images
             })
-            .jpeg({ quality: 80 })
+            .jpeg({ quality: 85 })
             .toBuffer();
 
         // Convert the compressed JPEG buffer into a base64 data URI

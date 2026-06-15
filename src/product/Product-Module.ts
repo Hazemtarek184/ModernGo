@@ -49,7 +49,7 @@ const productSchema = new Schema<IProduct>(
 );
 
 export const ProductModel =
-    (models.Product as Model<HydratedDocument<IProduct>>) ||
+    (models.Product as Model<IProduct>) ||
     model<IProduct>("Product", productSchema);
 
 export type HProductDocument = HydratedDocument<IProduct>;

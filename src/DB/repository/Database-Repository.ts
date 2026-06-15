@@ -4,23 +4,23 @@ import {
     FlattenMaps,
     HydratedDocument,
     Model,
-    // MongooseUpdateQueryOptions,
     PopulateOptions,
     ProjectionType,
+    QueryFilter,
     QueryOptions,
     Types,
     UpdateQuery,
     UpdateWriteOpResult,
-    // UpdateWriteOpResult,
-    // RootFilterQuery,
-
 } from "mongoose";
-type ModelFilter<T> = Parameters<Model<T>["find"]>[0];
+
+type ModelFilter<T> = QueryFilter<T>;
+
+export type { ModelFilter };
 
 export type Lean<T> = FlattenMaps<T>;
 
 export abstract class DatabaseRepository<TRawDocument, TDocument = HydratedDocument<TRawDocument>> {
-    constructor(protected model: Model<TDocument>) { }
+    constructor(protected model: Model<TRawDocument>) { }
 
 
     async create({
@@ -30,7 +30,7 @@ export abstract class DatabaseRepository<TRawDocument, TDocument = HydratedDocum
         data: Partial<TRawDocument>[] | any;
         options?: CreateOptions | undefined;
     }): Promise<TDocument[]> {
-        return await this.model.create(data, options) || [];
+        return (await this.model.create(data, options) || []) as TDocument[];
     }
 
     async findOne({
@@ -40,13 +40,9 @@ export abstract class DatabaseRepository<TRawDocument, TDocument = HydratedDocum
     }: {
         filter?: ModelFilter<TRawDocument>;
         select?: ProjectionType<TRawDocument> | null;
-        options?: QueryOptions<TDocument> | null;
+        options?: QueryOptions<TRawDocument> | null;
 
-    }): Promise<
-        // | Lean<TDocument>
-        HydratedDocument<TDocument>
-        | null
-    > {
+    }): Promise<TDocument | null> {
 
         const doc = this.model.findOne(filter).select(select || "")
         if (options?.lean) {
@@ -56,7 +52,7 @@ export abstract class DatabaseRepository<TRawDocument, TDocument = HydratedDocum
         if (options?.populate) {
             doc.populate(options.populate as PopulateOptions[]);
         }
-        return await doc.exec();
+        return await doc.exec() as TDocument | null;
     }
 
 
@@ -67,7 +63,7 @@ export abstract class DatabaseRepository<TRawDocument, TDocument = HydratedDocum
     }: {
         filter: ModelFilter<TRawDocument>;
         select?: ProjectionType<TRawDocument> | undefined;
-        options?: QueryOptions<TDocument> | undefined
+        options?: QueryOptions<TRawDocument> | undefined
     }): Promise<TDocument[] | [] | Lean<TDocument>[]> {
         const doc = this.model.find(filter || {}).select(select || ' ');
 
@@ -84,7 +80,7 @@ export abstract class DatabaseRepository<TRawDocument, TDocument = HydratedDocum
         if (options?.limit) {
             doc.limit(options.limit)
         }
-        return await doc.exec();
+        return await doc.exec() as TDocument[] | Lean<TDocument>[];
     }
 
 
@@ -95,9 +91,9 @@ export abstract class DatabaseRepository<TRawDocument, TDocument = HydratedDocum
 
     }:
         {
-            filter: ModelFilter<TRawDocument> | any,
-            update: UpdateQuery<TDocument>,
-            options?:QueryOptions<TDocument> | any
+            filter: ModelFilter<TRawDocument>,
+            update: UpdateQuery<TRawDocument>,
+            options?: NonNullable<Parameters<Model<TRawDocument>['updateOne']>[2]>
 
         }): Promise<UpdateWriteOpResult> {
     
@@ -117,15 +113,14 @@ export abstract class DatabaseRepository<TRawDocument, TDocument = HydratedDocum
 
     }: {
         id: Types.ObjectId;
-        update?: UpdateQuery<TDocument>,
-        options?: QueryOptions<TDocument>,
+        update?: UpdateQuery<TRawDocument>,
+        options?: QueryOptions<TRawDocument>,
     }): Promise<TDocument | Lean<TDocument> | null> {
         return await this.model.findByIdAndUpdate(
             id,
             { ...update, $inc: { __v: 1 } },
             options,
-        )
-
+        ) as TDocument | Lean<TDocument> | null;
     }
 
 
@@ -137,8 +132,8 @@ export abstract class DatabaseRepository<TRawDocument, TDocument = HydratedDocum
 
     }: {
         filter?: ModelFilter<TRawDocument>;
-        update?: UpdateQuery<TDocument> | null;
-        options?: QueryOptions<TDocument> | null;
+        update?: UpdateQuery<TRawDocument> | null;
+        options?: QueryOptions<TRawDocument> | null;
     }): Promise<TDocument | Lean<TDocument> | null> {
 
 
@@ -148,13 +143,13 @@ export abstract class DatabaseRepository<TRawDocument, TDocument = HydratedDocum
                     __v: { $add: [`$__v`, 1] }
                 },
             });
-            return await this.model.findOneAndUpdate(filter || {}, update, options)
+            return await this.model.findOneAndUpdate(filter || {}, update, options) as TDocument | Lean<TDocument> | null;
         }
         return this.model.findOneAndUpdate(
             filter || {},
             { ...update, $inc: { __v: 1 } },
             options,
-        );
+        ) as Promise<TDocument | Lean<TDocument> | null>;
     }
 
 
@@ -168,7 +163,7 @@ export abstract class DatabaseRepository<TRawDocument, TDocument = HydratedDocum
         return this.model.findOneAndDelete(
             filter || {},
             { $inc: { __v: 1 } },
-        );
+        ) as Promise<TDocument | Lean<TDocument> | null>;
     }
 
 

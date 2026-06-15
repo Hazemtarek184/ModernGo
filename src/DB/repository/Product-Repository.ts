@@ -4,7 +4,7 @@ import { IProduct as TDocument } from '../../types/Product-Interface'
 
 
 export class ProductRepository extends DatabaseRepository<TDocument, HydratedDocument<TDocument>> {
-    constructor(protected override readonly model: Model<HydratedDocument<TDocument>>) {
+    constructor(protected override readonly model: Model<TDocument>) {
         super(model)
     }
 }

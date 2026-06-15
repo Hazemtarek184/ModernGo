@@ -22,7 +22,7 @@ type StockSnapshotPayload = {
 };
 
 class CartItemService {
-    private cartItemRepository = new CartItemRepository(CartItemModel as any);
+    private cartItemRepository = new CartItemRepository(CartItemModel);
 
     constructor() { }
     // Event 3: Cart Event

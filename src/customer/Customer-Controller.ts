@@ -23,6 +23,13 @@ class CustomerController {
         // Convert and aggressively compress photo buffer using sharp
         const profilePhoto = await compressAndEncodePhoto(req.file);
 
+        // Verify that the uploaded profile photo actually contains a face
+        const { verifyFaceExists } = await import("../utils/face-comparer");
+        const hasFace = await verifyFaceExists(profilePhoto);
+        if (!hasFace) {
+            throw new BadRequestException("No face detected in the profile photo. Please upload a clear photo of your face.");
+        }
+
         // Extract DTO fields (exclude confirmPassword — already validated by middleware)
         const { confirmPassword, ...bodyFields } = req.body;
 
