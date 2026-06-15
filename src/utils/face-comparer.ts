@@ -10,7 +10,9 @@ import path from "path";
 import sharp from "sharp";
 import * as tf from "@tensorflow/tfjs";
 import { setWasmPath } from "@tensorflow/tfjs-backend-wasm";
-import * as faceapi from "@vladmandic/face-api";
+// Import the WASM distribution — the default dist/face-api.node.js requires
+// @tensorflow/tfjs-node (native addon) which fails on this machine.
+import * as faceapi from "@vladmandic/face-api/dist/face-api.node-wasm.js";
 
 // Point tfjs at the WASM binaries shipped with the package
 setWasmPath(path.join(process.cwd(), "node_modules", "@tensorflow", "tfjs-backend-wasm", "dist"));
