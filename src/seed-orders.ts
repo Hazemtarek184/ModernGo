@@ -8,6 +8,8 @@ import mongoose from "mongoose";
 
 const NUM_ORDERS = 500;
 const DAYS_HISTORY = 90;
+// Optional: set SEED_STORE_ID env var to seed only one specific store
+const TARGET_STORE_ID = process.env.SEED_STORE_ID || null;
 
 const seedOrders = async () => {
     try {
@@ -34,7 +36,17 @@ const seedOrders = async () => {
             productsByStore[sId].push(sp);
         }
 
-        const storesWithProducts = stores.filter(s => s._id && productsByStore[s._id.toString()] && productsByStore[s._id.toString()]!.length > 0);
+        // Filter stores: either target a specific one, or all stores with products
+        let storesWithProducts = stores.filter(s => s._id && productsByStore[s._id.toString()] && productsByStore[s._id.toString()]!.length > 0);
+
+        if (TARGET_STORE_ID) {
+            storesWithProducts = storesWithProducts.filter(s => s._id.toString() === TARGET_STORE_ID);
+            if (storesWithProducts.length === 0) {
+                console.error(`❌ No store found with SEED_STORE_ID=${TARGET_STORE_ID} that has products.`);
+                process.exit(1);
+            }
+            console.log(`🎯 Targeting specific store: ${TARGET_STORE_ID}`);
+        }
 
         if (storesWithProducts.length === 0) {
             console.error("❌ No store has any products. Please seed store-products first.");
@@ -115,6 +127,18 @@ const seedOrders = async () => {
         }
 
         console.log("✅ Orders seeded successfully!");
+
+        // Print which stores received orders
+        const storeIdCounts: Record<string, number> = {};
+        for (const doc of ordersToInsert) {
+            const sid = doc.storeId.toString();
+            storeIdCounts[sid] = (storeIdCounts[sid] || 0) + 1;
+        }
+        console.log("\n📊 Orders per store:");
+        for (const [sid, count] of Object.entries(storeIdCounts)) {
+            console.log(`   storeId: ${sid}  →  ${count} orders`);
+        }
+        console.log("\n💡 Make sure your frontend storeId matches one of the above!");
 
     } catch (error) {
         console.error("❌ Error seeding orders:", error);
