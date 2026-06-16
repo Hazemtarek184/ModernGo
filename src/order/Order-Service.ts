@@ -12,7 +12,9 @@ class OrderService {
         items: IOrderItem[];
         totalAmount: number;
     }): Promise<IOrder> {
-        const order = await this.orderRepository.create(data as any);
+        const [order] = await this.orderRepository.create({
+            data: [data]
+        });
         return order as unknown as IOrder;
     }
 

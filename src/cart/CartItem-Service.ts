@@ -161,11 +161,10 @@ class CartItemService {
     }
 
     private async createOrderFromCart(customerId: string | undefined, cartItems: { storeProductId: any; quantity: number }[]) {
-        if (!cartItems || cartItems.length === 0) return;
+        if (!cartItems || cartItems.length === 0) return null;
 
-        let totalAmount = 0;
-        const orderItems: any[] = [];
-        let storeId: Types.ObjectId | null = null;
+        // Group cart items by their storeId
+        const itemsByStore: Record<string, any[]> = {};
 
         for (const item of cartItems) {
             const spId = typeof item.storeProductId === 'object' && item.storeProductId._id 
@@ -175,32 +174,40 @@ class CartItemService {
             const storeProduct = await StoreProductModel.findById(spId).lean();
             if (!storeProduct) continue;
 
-            if (!storeId) {
-                storeId = storeProduct.storeId as Types.ObjectId;
+            const storeIdStr = storeProduct.storeId.toString();
+            if (!itemsByStore[storeIdStr]) {
+                itemsByStore[storeIdStr] = [];
             }
 
             const price = storeProduct.price || 0;
-            totalAmount += price * item.quantity;
-            
-            orderItems.push({
+            itemsByStore[storeIdStr].push({
                 storeProductId: storeProduct._id,
                 quantity: item.quantity,
                 price: price
             });
         }
 
-        if (storeId && orderItems.length > 0) {
+        const createdOrders: any[] = [];
+
+        for (const [storeIdStr, orderItems] of Object.entries(itemsByStore)) {
+            if (orderItems.length === 0) continue;
+
+            const totalAmount = orderItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
             const orderPayload: any = {
-                storeId,
+                storeId: new Types.ObjectId(storeIdStr),
                 items: orderItems,
-                totalAmount
+                totalAmount: parseFloat(totalAmount.toFixed(2))
             };
+
             if (customerId) {
                 orderPayload.customerId = new Types.ObjectId(customerId);
             }
-            return await OrderService.createOrder(orderPayload);
+
+            const order = await OrderService.createOrder(orderPayload);
+            createdOrders.push(order);
         }
-        return null;
+
+        return createdOrders.length > 0 ? createdOrders[0] : null;
     }
 
     // Public version for the manual checkout REST endpoint.
