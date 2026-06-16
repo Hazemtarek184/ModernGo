@@ -81,16 +81,18 @@ export class AnalyticsService {
         const startDate = new Date(Date.now() - periodDays * 24 * 60 * 60 * 1000);
 
         const data = await OrderModel.aggregate([
-            { $match: { storeId: storeObjectId, createdAt: { $gte: startDate }, status: { $ne: 'cancelled' } } },
+            { $match: { storeId: storeObjectId, createdAt: { $gte: startDate } } },
             {
                 $group: {
                     _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
-                    revenue: { $sum: "$totalAmount" },
+                    revenue: { $sum: { $cond: [{ $ne: ["$status", "cancelled"] }, "$totalAmount", 0] } },
                     orders: { $sum: 1 }
                 }
             },
             { $sort: { _id: 1 } }
         ]);
+
+        console.log(`[Analytics] getSalesChartData storeId=${storeId} period=${periodDays}d → ${data.length} day buckets`);
 
         const chartData = [];
         for (let i = periodDays - 1; i >= 0; i--) {
@@ -114,7 +116,7 @@ export class AnalyticsService {
 
         const sortStage: any = sortBy === 'revenue' ? { $sort: { totalRevenue: -1 } } : { $sort: { totalQuantity: -1 } };
 
-        return await OrderModel.aggregate([
+        const result = await OrderModel.aggregate([
             { $match: { storeId: storeObjectId, createdAt: { $gte: startDate }, status: { $ne: 'cancelled' } } },
             { $unwind: "$items" },
             { 
@@ -134,7 +136,7 @@ export class AnalyticsService {
                     as: "storeProduct"
                 }
             },
-            { $unwind: "$storeProduct" },
+            { $unwind: { path: "$storeProduct", preserveNullAndEmptyArrays: false } },
             {
                 $lookup: {
                     from: "products",
@@ -143,7 +145,7 @@ export class AnalyticsService {
                     as: "product"
                 }
             },
-            { $unwind: "$product" },
+            { $unwind: { path: "$product", preserveNullAndEmptyArrays: false } },
             {
                 $project: {
                     _id: 1,
@@ -155,6 +157,9 @@ export class AnalyticsService {
                 }
             }
         ]);
+
+        console.log(`[Analytics] getTopProducts storeId=${storeId} period=${periodDays}d → ${result.length} products`);
+        return result;
     }
 
     async getOrderStatusBreakdown(storeId: string, periodDays: number) {
