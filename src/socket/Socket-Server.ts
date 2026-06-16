@@ -186,11 +186,17 @@ export function initSocketServer(httpServer: HttpServer): Server {
                 }
 
                 // real customer cart updated -> notify mobile
+                const warnings = await CartItemService.getHealthWarnings(
+                    result.customerId,
+                    result.update.cart,
+                );
+
                 io.of("/mobile")
                     .to(`customer:${result.customerId}`)
                     .emit("cart:updated", {
                         customerId: result.customerId,
                         ...result.update,
+                        warnings,
                     });
 
                 socket.emit("backend:cart_ack", {
@@ -367,10 +373,12 @@ export function initSocketServer(httpServer: HttpServer): Server {
 
         try {
             const cart = await CartItemService.getCustomerCart(customerId);
+            const warnings = await CartItemService.getHealthWarnings(customerId, cart);
 
             socket.emit("cart:current", {
                 customerId,
                 cart,
+                warnings,
             });
         } catch (error: any) {
             socket.emit("socket:error", {

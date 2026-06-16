@@ -21,6 +21,13 @@ type StockSnapshotPayload = {
     items: StockSnapshotItem[];
 };
 
+export type HealthWarning = {
+    productName: string;
+    severity: "critical" | "severe" | "moderate";
+    type: "allergy" | "drug_interaction" | "dietary" | "condition";
+    message: string;
+};
+
 class CartItemService {
     private cartItemRepository = new CartItemRepository(CartItemModel);
 
@@ -434,6 +441,95 @@ class CartItemService {
                 customerId: new Types.ObjectId(customerId),
             } as any,
         });
+    }
+    // Health Warnings via Ollama
+    async getHealthWarnings(customerId: string, cartItems: ICartItem[]): Promise<HealthWarning[]> {
+        try {
+            const healthProfile = await HealthProfileModel.findOne({
+                customerId: new Types.ObjectId(customerId),
+            }).lean();
+
+            if (!healthProfile) {
+                return [];
+            }
+
+            // Extract product details from populated cart items
+            const products = (cartItems as any[]).map((item) => {
+                const sp = item.storeProductId;
+                const product = sp?.productId;
+                if (!product) return null;
+                return {
+                    name: product.name,
+                    ingredients: product.ingredients ?? [],
+                    allergens: product.allergens ?? [],
+                    drugInteractions: product.drugInteractions ?? [],
+                    warnings: product.warnings ?? [],
+                    additives: product.additives ?? [],
+                };
+            }).filter(Boolean);
+
+            if (products.length === 0) {
+                return [];
+            }
+
+            const ollamaUrl = process.env.OLLAMA_URL || "http://localhost:8081";
+
+            const prompt = `You are a clinical pharmacist. Check if these grocery items are DANGEROUS for this specific patient.
+
+PATIENT HEALTH PROFILE:
+Age: ${healthProfile.age}, Sex: ${healthProfile.sex}
+Allergies: ${JSON.stringify(healthProfile.allergies)}
+Conditions: ${JSON.stringify(healthProfile.conditions)}
+Medications: ${JSON.stringify(healthProfile.medications)}
+Dietary Restrictions: ${JSON.stringify(healthProfile.dietaryRestrictions)}
+Risk Factors: ${JSON.stringify(healthProfile.riskFactors)}
+
+CART ITEMS:
+${JSON.stringify(products, null, 2)}
+
+Respond ONLY with a raw JSON object (no markdown, no code blocks, no explanation).
+Format: {"hasProblems":true,"warnings":[{"productName":"exact product name","severity":"critical","type":"allergy","message":"brief warning"}]}
+Severity levels: critical, severe, moderate.
+Type options: allergy, drug_interaction, dietary, condition.
+If no problems: {"hasProblems":false,"warnings":[]}
+JSON:`;
+
+            const response = await fetch(`${ollamaUrl}/v1/completions`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    prompt,
+                    stream: false,
+                    temperature: 0.1,
+                    max_tokens: 800,
+                }),
+            });
+
+            if (!response.ok) {
+                console.error(`[Health] Ollama request failed: ${response.status}`);
+                return [];
+            }
+
+            const data = await response.json() as any;
+            const text: string = data?.choices?.[0]?.text ?? "";
+
+            // Extract JSON safely — handles markdown code blocks if model wraps
+            const firstBrace = text.indexOf("{");
+            const lastBrace = text.lastIndexOf("}");
+            if (firstBrace === -1 || lastBrace === -1) {
+                console.error("[Health] No JSON in AI response:", text.slice(0, 200));
+                return [];
+            }
+
+            const parsed = JSON.parse(text.slice(firstBrace, lastBrace + 1));
+            const warnings: HealthWarning[] = Array.isArray(parsed.warnings) ? parsed.warnings : [];
+
+            console.log(`[Health] Warnings for customer ${customerId}:`, warnings.length);
+            return warnings;
+        } catch (error: any) {
+            console.error("[Health] getHealthWarnings error:", error.message);
+            return [];
+        }
     }
 }
 

@@ -1,6 +1,4 @@
 import { Request, Response, NextFunction } from "express";
-import { Types } from "mongoose";
-import { CartItemModel } from "./CartItem-Module";
 import CartItemService from "./CartItem-Service";
 import { asyncHandler, BadRequestException, UnauthorizedException } from "../utils/error.response";
 
@@ -13,11 +11,15 @@ class CartItemController {
         }
 
         const cartItems = await CartItemService.getCustomerCart(customerId);
+        const warnings = await CartItemService.getHealthWarnings(customerId, cartItems);
 
         res.status(200).json({
             success: true,
             message: "Cart fetched successfully",
-            data: cartItems,
+            data: {
+                cart: cartItems,
+                warnings,
+            },
         });
     });
 
