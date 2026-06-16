@@ -10,6 +10,7 @@ import storeProductsRouter from './store-product/StoreProduct-Router';
 import customersRouter from './customer/Customer-Router';
 import healthProfileRouter from './health-profile/HealthProfile-Router';
 import cartItemRouter from "./cart/CartItem-Router";
+import analyticsRouter from "./analytics/Analytics-Router";
 
 const app = express();
 
@@ -45,6 +46,7 @@ app.use("/api/customers", customersRouter);
 app.use("/api/health-profiles", healthProfileRouter);
 app.use("/api", storeProductsRouter); // Handles nested routes like /api/stores/:id/products
 app.use("/api/cart", cartItemRouter);
+app.use("/api/analytics", analyticsRouter);
 
 // Catch-all for invalid routes (must be after all valid routes)
 app.use((req: Request, res: Response) => {
