@@ -27,6 +27,7 @@ interface LoginStoreDto {
 
 interface UpdateStoreDto {
     name?: string | undefined;
+    email?: string | undefined;
     address?: string | undefined;
     phone?: string | undefined;
     location?: {
@@ -196,11 +197,20 @@ class StoreService {
             throw new NotFoundException("Store not found");
         }
 
+        // If email is being changed, check if new email is already taken
+        if (dto.email && dto.email.toLowerCase().trim() !== store.email.toLowerCase()) {
+            const existingEmail = await this.storeRepository.findByEmail(dto.email);
+            if (existingEmail) {
+                throw new BadRequestException("Email already registered");
+            }
+        }
+
         // Build update object
         const updatedStore = await this.storeRepository.findOneAndUpdate({
             filter: { _id: new Types.ObjectId(storeId) },
             update: {
                 ...(dto.name && { name: dto.name }),
+                ...(dto.email && { email: dto.email.toLowerCase().trim() }),
                 ...(dto.address && { address: dto.address }),
                 ...(dto.phone && { phone: dto.phone.trim() }),
                 ...(dto.location && { location: dto.location }),
@@ -214,6 +224,48 @@ class StoreService {
         }
 
         return updatedStore;
+    }
+
+    /**
+     * Update profile photo
+     */
+    async updateProfilePhoto(storeId: string, profilePhoto: string) {
+        if (!Types.ObjectId.isValid(storeId)) {
+            throw new BadRequestException("Invalid storeId format");
+        }
+
+        const store = await this.storeRepository.findOneAndUpdate({
+            filter: { _id: new Types.ObjectId(storeId) },
+            update: { profilePhoto },
+            options: { returnDocument: "after" }
+        });
+
+        if (!store) {
+            throw new NotFoundException("Store not found");
+        }
+
+        return store;
+    }
+
+    /**
+     * Delete profile photo
+     */
+    async deleteProfilePhoto(storeId: string) {
+        if (!Types.ObjectId.isValid(storeId)) {
+            throw new BadRequestException("Invalid storeId format");
+        }
+
+        const store = await this.storeRepository.findOneAndUpdate({
+            filter: { _id: new Types.ObjectId(storeId) },
+            update: { $unset: { profilePhoto: "" } },
+            options: { returnDocument: "after" }
+        });
+
+        if (!store) {
+            throw new NotFoundException("Store not found");
+        }
+
+        return store;
     }
 
     /**

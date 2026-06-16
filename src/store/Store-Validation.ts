@@ -65,6 +65,8 @@ export const updateStoreSchema = {
             .max(100, { message: "Store name must not exceed 100 characters" })
             .optional(),
 
+        email: generalFields.email.optional(),
+
         address: z.string()
             .min(5, { message: "Address must be at least 5 characters" })
             .max(200, { message: "Address must not exceed 200 characters" })

@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import { successResponse } from "../utils/success.response";
-import { ForbiddenException } from "../utils/error.response";
+import { ForbiddenException, BadRequestException } from "../utils/error.response";
 import StoreService from "./Store-Service";
 import { compressAndEncodePhoto, validatePhotoSize } from "../utils/photo.utils";
 
@@ -188,6 +188,57 @@ class StoreController {
             res,
             statuscode: 200,
             data: result
+        });
+    };
+
+    /**
+     * POST /api/stores/:storeId/profile-image
+     * Upload/update store profile photo
+     */
+    updateProfilePhoto = async (req: Request, res: Response): Promise<Response> => {
+        const { storeId } = req.params;
+
+        // Verify the authenticated store owns this resource
+        if (req.store!.storeId !== storeId) {
+            throw new ForbiddenException("You can only modify your own store");
+        }
+
+        if (!req.file) {
+            throw new BadRequestException("Profile photo is required");
+        }
+
+        validatePhotoSize(req.file, 5);
+        const profilePhoto = await compressAndEncodePhoto(req.file);
+
+        const updatedStore = await StoreService.updateProfilePhoto(storeId!, profilePhoto);
+
+        return successResponse({
+            res,
+            statuscode: 200,
+            data: { store: updatedStore },
+            message: "Profile photo updated successfully"
+        });
+    };
+
+    /**
+     * DELETE /api/stores/:storeId/profile-image
+     * Delete store profile photo
+     */
+    deleteProfilePhoto = async (req: Request, res: Response): Promise<Response> => {
+        const { storeId } = req.params;
+
+        // Verify the authenticated store owns this resource
+        if (req.store!.storeId !== storeId) {
+            throw new ForbiddenException("You can only modify your own store");
+        }
+
+        const updatedStore = await StoreService.deleteProfilePhoto(storeId!);
+
+        return successResponse({
+            res,
+            statuscode: 200,
+            data: { store: updatedStore },
+            message: "Profile photo deleted successfully"
         });
     };
 }

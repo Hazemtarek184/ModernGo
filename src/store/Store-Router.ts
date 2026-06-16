@@ -90,4 +90,17 @@ router.patch(
     StoreController.updatePassword
 );
 
+router.post(
+    "/:storeId/profile-image",
+    authenticateStore,
+    fileUpload({ validation: fileValidation.image, maxSizeMB: 5 }).single("profilePhoto"),
+    StoreController.updateProfilePhoto
+);
+
+router.delete(
+    "/:storeId/profile-image",
+    authenticateStore,
+    StoreController.deleteProfilePhoto
+);
+
 export default router;
