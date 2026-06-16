@@ -7,6 +7,8 @@ import { StoreProductModel } from "../store-product/StoreProduct-Module";
 import { ProductModel } from "../product/Product-Module";
 
 let aiNamespace: ReturnType<Server["of"]> | null = null;
+let aiConnectedCount = 0;
+const pendingPersonImages: string[] = [];
 
 type PersonImagesPayload = {
     personKey: string;
@@ -37,12 +39,13 @@ type PersonLeftPayload = {
 // Message format:
 // 2{"personKey":"...","images":["base64..."]}
 export const sendPersonImagesToAI = (payload: PersonImagesPayload): void => {
-    if (!aiNamespace) {
-        console.warn("[Socket.IO] AI namespace is not initialized yet");
+    const message = `2${JSON.stringify(payload)}`;
+
+    if (!aiNamespace || aiConnectedCount === 0) {
+        pendingPersonImages.push(message);
+        console.log(`[Socket.IO] No AI client connected — queued person_images for "${payload.personKey}" (queue size: ${pendingPersonImages.length})`);
         return;
     }
-
-    const message = `2${JSON.stringify(payload)}`;
 
     aiNamespace.emit("backend:person_images", message);
 };
@@ -90,7 +93,18 @@ export function initSocketServer(httpServer: HttpServer): Server {
     aiNamespace.use(authenticateAiSocket);
 
     aiNamespace.on("connection", (socket: Socket) => {
-        console.log(`[AI] Connected: ${socket.id}`);
+        aiConnectedCount++;
+        console.log(`[AI] Connected: ${socket.id} (active clients: ${aiConnectedCount})`);
+
+        // Flush any queued person_images to the newly connected AI client
+        if (pendingPersonImages.length > 0) {
+            console.log(`[AI] Flushing ${pendingPersonImages.length} queued person_images to ${socket.id}`);
+            for (const message of pendingPersonImages) {
+                socket.emit("backend:person_images", message);
+            }
+            pendingPersonImages.length = 0;
+        }
+
 
         // ─────────────────────────────────────────
         // Event type 1: alive ping
@@ -406,7 +420,8 @@ export function initSocketServer(httpServer: HttpServer): Server {
         });
 
         socket.on("disconnect", (reason) => {
-            console.log(`[AI] Disconnected: ${socket.id} (${reason})`);
+            aiConnectedCount = Math.max(0, aiConnectedCount - 1);
+            console.log(`[AI] Disconnected: ${socket.id} (${reason}) (active clients: ${aiConnectedCount})`);
         });
     });
 
