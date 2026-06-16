@@ -38,11 +38,10 @@ class OrderService {
             .populate({
                 path: "items.storeProductId",
                 populate: {
-                    path: "productId",
-                    select: "-images"
+                    path: "productId"
                 }
             })
-            .populate("storeId", "name address phone")
+            .populate("storeId", "name address phone profilePhoto")
             .sort({ createdAt: -1 })
             .skip(skip)
             .limit(limit)
