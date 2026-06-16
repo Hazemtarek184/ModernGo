@@ -42,7 +42,7 @@ export const sendPersonImagesToAI = (payload: PersonImagesPayload): void => {
         return;
     }
 
-    const message = `2{${JSON.stringify(payload)}}`;
+    const message = `2${JSON.stringify(payload)}`;
 
     aiNamespace.emit("backend:person_images", message);
 };
