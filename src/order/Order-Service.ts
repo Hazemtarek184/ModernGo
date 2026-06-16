@@ -29,17 +29,24 @@ class OrderService {
             .exec() as unknown as IOrder[];
     }
 
-    async getCustomerOrders(customerId: string): Promise<IOrder[]> {
-        return await OrderModel.find({ customerId: new Types.ObjectId(customerId) })
+    async getCustomerOrders(customerId: string, page: number = 1, limit: number = 10): Promise<{ orders: IOrder[]; total: number; page: number; limit: number; totalPages: number }> {
+        const skip = (page - 1) * limit;
+        const total = await OrderModel.countDocuments({ customerId: new Types.ObjectId(customerId) });
+        const orders = await OrderModel.find({ customerId: new Types.ObjectId(customerId) })
             .populate({
                 path: "items.storeProductId",
                 populate: {
-                    path: "productId"
+                    path: "productId",
+                    select: "-images"
                 }
             })
-            .populate("storeId", "name profilePhoto address phone")
+            .populate("storeId", "name address phone")
             .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit)
             .exec() as unknown as IOrder[];
+        const totalPages = Math.ceil(total / limit);
+        return { orders, total, page, limit, totalPages };
     }
 }
 

@@ -29,24 +29,28 @@ class OrderController {
             throw new ForbiddenException("You can only view your own order history");
         }
 
-        const orders = await OrderService.getCustomerOrders(customerId!);
+        const page = parseInt(req.query.page as string) || 1;
+        const limit = parseInt(req.query.limit as string) || 10;
+        const result = await OrderService.getCustomerOrders(customerId!, page, limit);
 
         return successResponse({
             res,
             statuscode: 200,
-            data: { orders, count: orders.length }
+            data: result
         });
     };
 
     getMyOrders = async (req: Request, res: Response): Promise<Response> => {
         const customerId = req.customer!.customerId;
 
-        const orders = await OrderService.getCustomerOrders(customerId);
+        const page = parseInt(req.query.page as string) || 1;
+        const limit = parseInt(req.query.limit as string) || 10;
+        const result = await OrderService.getCustomerOrders(customerId, page, limit);
 
         return successResponse({
             res,
             statuscode: 200,
-            data: { orders, count: orders.length }
+            data: result
         });
     };
 }
