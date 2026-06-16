@@ -15,12 +15,23 @@ import ordersRouter from "./order/Order-Router";
 
 const app = express();
 
-// CORS Configuration for Mobile/React Native Apps
+// CORS Configuration
+const allowedOrigins = process.env.FRONTEND_URL
+    ? process.env.FRONTEND_URL.split(",").map((url) => url.trim())
+    : true;
+
 const corsOptions = {
-    origin: true, // Allow all origins
+    origin: allowedOrigins,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    allowedHeaders: [
+        'Content-Type',
+        'Authorization',
+        'X-Requested-With',
+        'Cache-Control',
+        'Pragma',
+        'Expires',
+    ],
     exposedHeaders: ['Content-Range', 'X-Content-Range'],
     maxAge: 86400, // 24 hours
 };
