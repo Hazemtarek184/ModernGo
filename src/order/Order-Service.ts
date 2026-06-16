@@ -15,6 +15,32 @@ class OrderService {
         const order = await this.orderRepository.create(data as any);
         return order as unknown as IOrder;
     }
+
+    async getStoreOrders(storeId: string): Promise<IOrder[]> {
+        return await OrderModel.find({ storeId: new Types.ObjectId(storeId) })
+            .populate({
+                path: "items.storeProductId",
+                populate: {
+                    path: "productId"
+                }
+            })
+            .populate("customerId", "firstName lastName email phone")
+            .sort({ createdAt: -1 })
+            .exec() as unknown as IOrder[];
+    }
+
+    async getCustomerOrders(customerId: string): Promise<IOrder[]> {
+        return await OrderModel.find({ customerId: new Types.ObjectId(customerId) })
+            .populate({
+                path: "items.storeProductId",
+                populate: {
+                    path: "productId"
+                }
+            })
+            .populate("storeId", "name profilePhoto address phone")
+            .sort({ createdAt: -1 })
+            .exec() as unknown as IOrder[];
+    }
 }
 
 export default new OrderService();
