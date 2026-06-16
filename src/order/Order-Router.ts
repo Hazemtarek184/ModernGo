@@ -28,6 +28,12 @@ router.get(
 );
 
 router.get(
+    "/my-orders",
+    authenticateCustomer,
+    OrderController.getMyOrders
+);
+
+router.get(
     "/customer/:customerId",
     authenticateCustomer,
     trimParams,

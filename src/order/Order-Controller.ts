@@ -37,6 +37,18 @@ class OrderController {
             data: { orders, count: orders.length }
         });
     };
+
+    getMyOrders = async (req: Request, res: Response): Promise<Response> => {
+        const customerId = req.customer!.customerId;
+
+        const orders = await OrderService.getCustomerOrders(customerId);
+
+        return successResponse({
+            res,
+            statuscode: 200,
+            data: { orders, count: orders.length }
+        });
+    };
 }
 
 export default new OrderController();
