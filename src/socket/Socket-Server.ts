@@ -161,13 +161,10 @@ export function initSocketServer(httpServer: HttpServer): Server {
                 }
 
                 // ── Snapshot which real customers own this product BEFORE any mutation ──
-                // Needed so we can notify them if a phantom person steals it.
-                let realCustomerIdsBefore: string[] = [];
-                if (parsedPayload.action === "pick") {
-                    realCustomerIdsBefore = await CartItemService.getCustomersWithProduct(
-                        parsedPayload.storeProductId,
-                    );
-                }
+                // Needed for both: phantom picks stealing it, and releases returning it to shelf.
+                const realCustomerIdsBefore = await CartItemService.getCustomersWithProduct(
+                    parsedPayload.storeProductId,
+                );
 
                 const cartEventPayload =
                     parsedPayload.action === "pick"
@@ -205,7 +202,36 @@ export function initSocketServer(httpServer: HttpServer): Server {
                         action: parsedPayload.action,
                     });
 
-                    // ── Notify real customers whose item was stolen by a phantom ──
+                    // ── On release: notify every real customer whose item was returned to shelf ──
+                    if (parsedPayload.action === "release" && realCustomerIdsBefore.length > 0) {
+                        for (const customerId of realCustomerIdsBefore) {
+                            try {
+                                const updatedCart = await CartItemService.getCustomerCart(customerId);
+                                const warnings = await CartItemService.getHealthWarnings(customerId, updatedCart);
+
+                                io.of("/mobile")
+                                    .to(`customer:${customerId}`)
+                                    .emit("cart:updated", {
+                                        customerId,
+                                        action: "release",
+                                        item: null,
+                                        cart: updatedCart,
+                                        warnings,
+                                    });
+
+                                console.log(
+                                    `[AI] Notified customer ${customerId} — item returned to shelf`,
+                                );
+                            } catch (notifyErr: any) {
+                                console.error(
+                                    `[AI] Failed to notify customer ${customerId} on release:`,
+                                    notifyErr.message,
+                                );
+                            }
+                        }
+                    }
+
+                    // ── On phantom pick: notify real customers whose item was stolen ──
                     if (parsedPayload.action === "pick" && realCustomerIdsBefore.length > 0) {
                         for (const customerId of realCustomerIdsBefore) {
                             try {
