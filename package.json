@@ -11,7 +11,11 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "seed:orders": "tsx src/seed-orders.ts"
+    "seed:stores": "tsx src/seed-stores.ts",
+    "seed:products": "tsx src/seed-products.ts",
+    "seed:customer": "tsx src/seed-test-customer.ts",
+    "seed:orders": "tsx src/seed-orders.ts",
+    "seed": "tsx src/seed.ts"
   },
   "keywords": [],
   "author": "",
