@@ -427,6 +427,24 @@ class CartItemService {
         return items as unknown as ICartItem[];
     }
 
+    // Find all real customer IDs who currently have a given storeProduct in their cart.
+    // Used to snapshot ownership before a phantom pick removes the item from real carts,
+    // so the socket server can notify affected customers afterward.
+    async getCustomersWithProduct(storeProductId: string): Promise<string[]> {
+        if (!Types.ObjectId.isValid(storeProductId)) {
+            return [];
+        }
+
+        const items = await this.cartItemRepository.find({
+            filter: {
+                storeProductId: new Types.ObjectId(storeProductId),
+            } as any,
+            select: "customerId",
+        });
+
+        return (items as any[]).map((item) => item.customerId.toString());
+    }
+
     async getPhantomCart(phantomKey: string): Promise<IPhantomCart[]> {
         return await PhantomCartModel.find({ phantomKey }).lean();
     }

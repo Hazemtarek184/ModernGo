@@ -146,6 +146,15 @@ export function initSocketServer(httpServer: HttpServer): Server {
                     throw new Error("personKey is required for pick action");
                 }
 
+                // ── Snapshot which real customers own this product BEFORE any mutation ──
+                // Needed so we can notify them if a phantom person steals it.
+                let realCustomerIdsBefore: string[] = [];
+                if (parsedPayload.action === "pick") {
+                    realCustomerIdsBefore = await CartItemService.getCustomersWithProduct(
+                        parsedPayload.storeProductId,
+                    );
+                }
+
                 const cartEventPayload =
                     parsedPayload.action === "pick"
                         ? {
@@ -182,6 +191,35 @@ export function initSocketServer(httpServer: HttpServer): Server {
                         action: parsedPayload.action,
                     });
 
+                    // ── Notify real customers whose item was stolen by a phantom ──
+                    if (parsedPayload.action === "pick" && realCustomerIdsBefore.length > 0) {
+                        for (const customerId of realCustomerIdsBefore) {
+                            try {
+                                const updatedCart = await CartItemService.getCustomerCart(customerId);
+                                const warnings = await CartItemService.getHealthWarnings(customerId, updatedCart);
+
+                                io.of("/mobile")
+                                    .to(`customer:${customerId}`)
+                                    .emit("cart:updated", {
+                                        customerId,
+                                        action: "release",
+                                        item: null,
+                                        cart: updatedCart,
+                                        warnings,
+                                    });
+
+                                console.log(
+                                    `[AI] Notified customer ${customerId} — item removed by phantom pick`,
+                                );
+                            } catch (notifyErr: any) {
+                                console.error(
+                                    `[AI] Failed to notify customer ${customerId}:`,
+                                    notifyErr.message,
+                                );
+                            }
+                        }
+                    }
+
                     return;
                 }
 
@@ -210,6 +248,38 @@ export function initSocketServer(httpServer: HttpServer): Server {
                     storeProductId: parsedPayload.storeProductId,
                     action: parsedPayload.action,
                 });
+
+                // ── Notify any other real customers displaced by this pick ──
+                const displacedCustomerIds = realCustomerIdsBefore.filter(
+                    (id) => id !== result.customerId,
+                );
+
+                for (const customerId of displacedCustomerIds) {
+                    try {
+                        const updatedCart = await CartItemService.getCustomerCart(customerId);
+                        const displacedWarnings = await CartItemService.getHealthWarnings(customerId, updatedCart);
+
+                        io.of("/mobile")
+                            .to(`customer:${customerId}`)
+                            .emit("cart:updated", {
+                                customerId,
+                                action: "release",
+                                item: null,
+                                cart: updatedCart,
+                                warnings: displacedWarnings,
+                            });
+
+                        console.log(
+                            `[AI] Notified displaced customer ${customerId} — item taken by ${result.customerId}`,
+                        );
+                    } catch (notifyErr: any) {
+                        console.error(
+                            `[AI] Failed to notify displaced customer ${customerId}:`,
+                            notifyErr.message,
+                        );
+                    }
+                }
+
             } catch (error: any) {
                 console.error("ai:cart_event error:", error.message);
 
