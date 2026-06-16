@@ -34,7 +34,7 @@ const seedOrders = async () => {
             productsByStore[sId].push(sp);
         }
 
-        const storesWithProducts = stores.filter(s => productsByStore[s._id.toString()] && productsByStore[s._id.toString()].length > 0);
+        const storesWithProducts = stores.filter(s => s._id && productsByStore[s._id.toString()] && productsByStore[s._id.toString()]!.length > 0);
 
         if (storesWithProducts.length === 0) {
             console.error("❌ No store has any products. Please seed store-products first.");
@@ -44,27 +44,32 @@ const seedOrders = async () => {
         const now = Date.now();
         const past = now - DAYS_HISTORY * 24 * 60 * 60 * 1000;
 
-        const ordersToInsert = [];
+        const ordersToInsert: any[] = [];
 
         for (let i = 0; i < NUM_ORDERS; i++) {
             // Pick a random store
             const store = storesWithProducts[Math.floor(Math.random() * storesWithProducts.length)];
+            if (!store || !store._id) continue;
             const availableProducts = productsByStore[store._id.toString()];
+            if (!availableProducts || availableProducts.length === 0) continue;
 
             // Pick a random customer (20% chance of being a phantom/guest)
             let customerId = undefined;
             if (customers.length > 0 && Math.random() > 0.2) {
                 const customer = customers[Math.floor(Math.random() * customers.length)];
-                customerId = customer._id;
+                if (customer && customer._id) {
+                    customerId = customer._id;
+                }
             }
 
             // Pick 1 to 5 random products
             const numItems = Math.floor(Math.random() * 5) + 1;
-            const items = [];
+            const items: any[] = [];
             let totalAmount = 0;
 
             for (let j = 0; j < numItems; j++) {
                 const sp = availableProducts[Math.floor(Math.random() * availableProducts.length)];
+                if (!sp || !sp._id) continue;
                 // Avoid duplicates in the same order
                 if (items.some(item => item.storeProductId.toString() === sp._id.toString())) {
                     continue;
