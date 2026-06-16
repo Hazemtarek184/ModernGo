@@ -54,11 +54,15 @@ class CartItemController {
             throw new UnauthorizedException("Customer not authenticated");
         }
 
+        // Fetch cart first, create the order, then clear — same as AI person_left flow.
+        const cartItems = await CartItemService.getCustomerCart(customerId);
+        const order = await CartItemService.createOrderFromCartPublic(customerId, cartItems);
         await CartItemService.clearCustomerCart(customerId);
 
         res.status(200).json({
             success: true,
             message: "Checkout successful",
+            data: { order },
         });
     });
 }

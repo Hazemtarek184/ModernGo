@@ -198,8 +198,14 @@ class CartItemService {
             if (customerId) {
                 orderPayload.customerId = new Types.ObjectId(customerId);
             }
-            await OrderService.createOrder(orderPayload);
+            return await OrderService.createOrder(orderPayload);
         }
+        return null;
+    }
+
+    // Public version for the manual checkout REST endpoint.
+    async createOrderFromCartPublic(customerId: string, cartItems: { storeProductId: any; quantity: number }[]) {
+        return this.createOrderFromCart(customerId, cartItems);
     }
 
     // Add product to cart then send health profile + product details to AI
