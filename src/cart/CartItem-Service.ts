@@ -11,6 +11,7 @@ import type {
     ICartUpdatedPayload,
 } from "../types/CartItem-Interface";
 import { StoreProductModel } from "../store-product/StoreProduct-Module";
+import OrderService from "../order/Order-Service";
 
 type PhantomCartItem = {
     storeProductId: string;
@@ -136,12 +137,18 @@ class CartItemService {
                 customerId: personKey,
             });
 
+            const cartItems = await this.getCustomerCart(personKey);
+            await this.createOrderFromCart(personKey, cartItems);
+            await this.clearCustomerCart(personKey);
+
             return {
                 status: "customer_left",
                 customerId: personKey,
             };
         }
 
+        const phantomCart = this.getPhantomCart(personKey);
+        await this.createOrderFromCart(undefined, phantomCart);
         this.phantomCarts.delete(personKey);
 
         console.log("[Cart] Phantom person left store, phantom cart removed:", {
@@ -151,6 +158,48 @@ class CartItemService {
         return {
             status: "phantom_left",
         };
+    }
+
+    private async createOrderFromCart(customerId: string | undefined, cartItems: { storeProductId: any; quantity: number }[]) {
+        if (!cartItems || cartItems.length === 0) return;
+
+        let totalAmount = 0;
+        const orderItems: any[] = [];
+        let storeId: Types.ObjectId | null = null;
+
+        for (const item of cartItems) {
+            const spId = typeof item.storeProductId === 'object' && item.storeProductId._id 
+                ? item.storeProductId._id 
+                : item.storeProductId;
+                
+            const storeProduct = await StoreProductModel.findById(spId).lean();
+            if (!storeProduct) continue;
+
+            if (!storeId) {
+                storeId = storeProduct.storeId as Types.ObjectId;
+            }
+
+            const price = storeProduct.price || 0;
+            totalAmount += price * item.quantity;
+            
+            orderItems.push({
+                storeProductId: storeProduct._id,
+                quantity: item.quantity,
+                price: price
+            });
+        }
+
+        if (storeId && orderItems.length > 0) {
+            const orderPayload: any = {
+                storeId,
+                items: orderItems,
+                totalAmount
+            };
+            if (customerId) {
+                orderPayload.customerId = new Types.ObjectId(customerId);
+            }
+            await OrderService.createOrder(orderPayload);
+        }
     }
 
     // Add product to cart then send health profile + product details to AI

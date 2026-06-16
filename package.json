@@ -10,7 +10,8 @@
     "dev:socket": "tsx watch src/socket-server.ts",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
+    "test:coverage": "jest --coverage",
+    "seed:orders": "tsx src/seed-orders.ts"
   },
   "keywords": [],
   "author": "",
