@@ -5,6 +5,7 @@ import CartItemService from "../cart/CartItem-Service";
 import { CustomerModel } from "../customer/Customer-Module";
 import { StoreProductModel } from "../store-product/StoreProduct-Module";
 import { ProductModel } from "../product/Product-Module";
+import { Types } from "mongoose";
 
 let aiNamespace: ReturnType<Server["of"]> | null = null;
 let aiConnectedCount = 0;
@@ -449,6 +450,71 @@ export function initSocketServer(httpServer: HttpServer): Server {
 
                 socket.emit("socket:error", {
                     message: "Failed to handle person left event",
+                    error: error.message,
+                });
+            }
+        });
+
+        // ─────────────────────────────────────────
+        // Event type 6: direct checkout (retrospective matching attribution)
+        //
+        // AI sends:
+        // 6{"personKey":"uuid", "storeProductId":"uuid"}
+        //
+        // Backend:
+        // - Directly creates an order for the customer with the product
+        // - Emits checkout:completed to the customer's mobile app
+        // ─────────────────────────────────────────
+
+        socket.on("ai:direct_checkout", async (data) => {
+            try {
+                console.log("[AI] direct checkout raw:", data);
+
+                const parsedPayload = parseTypedMessage<{
+                    personKey: string;
+                    storeProductId: string;
+                }>(data, "6");
+
+                const customerId = parsedPayload.personKey;
+                const storeProductId = parsedPayload.storeProductId;
+
+                if (!Types.ObjectId.isValid(customerId) || !Types.ObjectId.isValid(storeProductId)) {
+                    throw new Error("Invalid customerId or storeProductId format");
+                }
+
+                // Verify customer exists
+                const customerExists = await CustomerModel.findById(customerId);
+                if (!customerExists) {
+                    throw new Error("Customer not found");
+                }
+
+                // Directly create order from this item
+                const order = await CartItemService.createOrderFromCartPublic(
+                    customerId,
+                    [{ storeProductId, quantity: 1 }]
+                );
+
+                if (order) {
+                    console.log(`[AI] Direct Checkout: Created order ${order._id} for customer ${customerId} with product ${storeProductId}`);
+                    // Notify mobile app of successful checkout
+                    io.of("/mobile")
+                        .to(`customer:${customerId}`)
+                        .emit("checkout:completed", {
+                            customerId: customerId,
+                            orderId: order._id.toString(),
+                        });
+                }
+
+                socket.emit("backend:direct_checkout_ack", {
+                    status: "direct_checkout_handled",
+                    customerId,
+                    storeProductId,
+                    orderId: order ? order._id.toString() : null,
+                });
+            } catch (error: any) {
+                console.error("ai:direct_checkout error:", error.message);
+                socket.emit("socket:error", {
+                    message: "Failed to handle direct checkout",
                     error: error.message,
                 });
             }
