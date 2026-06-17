@@ -91,6 +91,7 @@ class CartItemService {
     async handleAIStockSnapshot(payload: StockSnapshotPayload): Promise<{
         handledItems: number;
         items: StockSnapshotItem[];
+        affectedCustomers: string[];
     }> {
         const { items } = payload;
 
@@ -98,9 +99,17 @@ class CartItemService {
             throw new BadRequestException("items must be an array");
         }
 
+        const affectedCustomersSet = new Set<string>();
+
         for (const item of items) {
             if (!Types.ObjectId.isValid(item.storeProductId)) {
                 throw new BadRequestException("Invalid storeProductId format");
+            }
+
+            // Find all real customer IDs who have this product in their cart BEFORE releasing
+            const customerIds = await this.getCustomersWithProduct(item.storeProductId);
+            for (const id of customerIds) {
+                affectedCustomersSet.add(id);
             }
 
             await this.releaseProductGlobally(
@@ -115,6 +124,7 @@ class CartItemService {
         return {
             handledItems: items.length,
             items,
+            affectedCustomers: Array.from(affectedCustomersSet),
         };
     }
     // Event 5: Person Left / Checkout

@@ -356,9 +356,39 @@ export function initSocketServer(httpServer: HttpServer): Server {
                     parsedPayload,
                 );
 
+                // Notify all affected customers' mobile apps
+                if (result.affectedCustomers && result.affectedCustomers.length > 0) {
+                    for (const customerId of result.affectedCustomers) {
+                        try {
+                            const updatedCart = await CartItemService.getCustomerCart(customerId);
+                            const warnings = await CartItemService.getHealthWarnings(customerId, updatedCart);
+
+                            io.of("/mobile")
+                                .to(`customer:${customerId}`)
+                                .emit("cart:updated", {
+                                    customerId,
+                                    action: "release",
+                                    item: null,
+                                    cart: updatedCart,
+                                    warnings,
+                                });
+
+                            console.log(
+                                `[AI] Stock Snapshot: Notified customer ${customerId} — items removed from shelf`,
+                            );
+                        } catch (notifyErr: any) {
+                            console.error(
+                                `[AI] Stock Snapshot: Failed to notify customer ${customerId}:`,
+                                notifyErr.message,
+                            );
+                        }
+                    }
+                }
+
                 socket.emit("backend:stock_ack", {
                     status: "stock_snapshot_handled",
-                    ...result,
+                    handledItems: result.handledItems,
+                    items: result.items,
                 });
 
                 console.log("[AI] stock snapshot handled:", result);
