@@ -131,6 +131,15 @@ class CustomerService {
             throw new BadRequestException("Failed to create customer account");
         }
 
+        // Send profile photo to AI immediately so it registers the face and scans the queue
+        const personKey = `${customer.firstName}_${customer.lastName}_${customer._id.toString()}`;
+        if (dto.profilePhoto) {
+            sendPersonImagesToAI({
+                personKey,
+                images: [dto.profilePhoto],
+            });
+        }
+
         // Return customer without password and profilePhotoKey (both are select: false fields)
         const customerObject = customer.toObject();
         const { password, profilePhotoKey, ...customerWithoutSensitive } = customerObject;
