@@ -468,7 +468,7 @@ export function initSocketServer(httpServer: HttpServer): Server {
 
         socket.on("ai:direct_checkout", async (data) => {
             try {
-                console.log("[AI] direct checkout raw:", data);
+                console.log("[AI] direct checkout (modified to add to cart) raw:", data);
 
                 const parsedPayload = parseTypedMessage<{
                     personKey: string;
@@ -488,28 +488,34 @@ export function initSocketServer(httpServer: HttpServer): Server {
                     throw new Error("Customer not found");
                 }
 
-                // Directly create order from this item
-                const order = await CartItemService.createOrderFromCartPublic(
-                    customerId,
-                    [{ storeProductId, quantity: 1 }]
-                );
+                // Instead of direct checkout, add the product to the customer's cart
+                const cartEventPayload = {
+                    personKey: customerId,
+                    storeProductId: storeProductId,
+                    action: "pick" as "pick" | "release",
+                };
+                const result = await CartItemService.handleAICartEvent(cartEventPayload);
 
-                if (order) {
-                    console.log(`[AI] Direct Checkout: Created order ${order._id} for customer ${customerId} with product ${storeProductId}`);
-                    // Notify mobile app of successful checkout
+                if (result) {
+                    const warnings = await CartItemService.getHealthWarnings(
+                        result.customerId,
+                        result.update.cart,
+                    );
+
                     io.of("/mobile")
-                        .to(`customer:${customerId}`)
-                        .emit("checkout:completed", {
-                            customerId: customerId,
-                            orderId: order._id.toString(),
+                        .to(`customer:${result.customerId}`)
+                        .emit("cart:updated", {
+                            customerId: result.customerId,
+                            ...result.update,
+                            warnings,
                         });
+                    console.log(`[AI] Direct Checkout: Added product ${storeProductId} to customer ${customerId} cart`);
                 }
 
                 socket.emit("backend:direct_checkout_ack", {
-                    status: "direct_checkout_handled",
+                    status: "cart_updated",
                     customerId,
                     storeProductId,
-                    orderId: order ? order._id.toString() : null,
                 });
             } catch (error: any) {
                 console.error("ai:direct_checkout error:", error.message);
